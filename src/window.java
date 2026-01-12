@@ -1,3 +1,6 @@
+import tools.TransferableImage;
+import globl.global;
+
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
@@ -209,7 +212,14 @@ public class window {
     }
 
     public void hostWindow() {
+        frame.getContentPane().removeAll();
+        frame.setSize(300,400);
+        frame.setLocationRelativeTo(null);
+        //
 
+        //
+        frame.repaint();
+        frame.revalidate();
     }
 
 }
