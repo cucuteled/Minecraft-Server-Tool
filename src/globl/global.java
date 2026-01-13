@@ -4,6 +4,7 @@ import tools.FileService;
 import javax.swing.*;
 import java.awt.*;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class global {
     public static String buildID = "v1.0.0";
@@ -11,6 +12,9 @@ public class global {
     public static String minecraftPath = System.getenv("APPDATA") + "\\.minecraft";
 
     public static List<String> getMyServers() {
-        return (List<String>) FileService.readFile("src/data/myservers.txt");
+        return FileService.readFile("src/data/myservers.txt")
+                .stream()
+                .map(o -> (String) o)
+                .collect(Collectors.toList());
     }
 }

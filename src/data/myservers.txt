@@ -1,0 +1,2 @@
+danelidon; C:\servers\dandelion
+MyServer2; C:\servers\myserver2
