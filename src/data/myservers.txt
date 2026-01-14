@@ -1,2 +1,1 @@
-danelidon; C:\servers\dandelion
-MyServer2; C:\servers\myserver2
+Krumpli; G:\My Servers\Krumpli;1.21.11

@@ -1,3 +1,4 @@
+import data.NewServerForm;
 import globl.Data;
 import tools.AppUtils;
 import tools.FileService;
@@ -20,6 +21,7 @@ import java.util.List;
 public class window {
 
     private JFrame frame = new JFrame("UMT |" + " build-(" + global.buildID + ")");
+    private NewServerForm newserverform = new NewServerForm();
 
     public window() {
         // Set window propeties;
@@ -32,6 +34,9 @@ public class window {
         frame.setVisible(true);
     }
 
+    // *****************************
+    // Main Menu Window
+    // *****************************
     public void welcomeScreen() {
         frame.getContentPane().removeAll();
         frame.setSize(400,360);
@@ -74,6 +79,9 @@ public class window {
         frame.revalidate();
     }
 
+    // *****************************
+    // Manage Screenshots Window
+    // *****************************
     public void screenshotWindow() {
         frame.getContentPane().removeAll();
         frame.setSize(765,450);
@@ -218,6 +226,9 @@ public class window {
         frame.revalidate();
     }
 
+    // *****************************
+    // Host Server Window
+    // *****************************
     public void hostWindow() {
         frame.getContentPane().removeAll();
         frame.setSize(384,400);
@@ -303,7 +314,11 @@ public class window {
         JButton selectButton = new JButton("Select");
         selectButton.setBounds(20,305,160,30);
         selectButton.addActionListener(e -> {
-            startServer(serverList.getSelectedValue());
+            String selected = serverList.getSelectedValue();
+            for (String s : global.getMyServers()) {
+                String[] parts = s.split(";");
+                if (parts[0].equals(selected)) startServer(s);
+            }
         });
         frame.add(selectButton);
         JButton addNewServerButton = new JButton("New Server");
@@ -335,6 +350,9 @@ public class window {
         openServerGUI();
     }
 
+    // *****************************
+    // New Server Window
+    // *****************************
     private void newServer() {
         frame.getContentPane().removeAll();
         frame.setSize(420,500);
@@ -361,6 +379,19 @@ public class window {
         inputServerPath.setBounds(10,180,320,45);
         frame.add(inputServerPath);
 
+        if (!newserverform.getServerName().isEmpty()) {
+            inputServerName.setText(newserverform.getServerName());
+            inputServerName.setForeground(Color.BLACK);
+        }
+        if (!newserverform.getServerPath().isEmpty()) {
+            inputServerPath.setText(newserverform.getServerPath());
+            inputServerPath.setForeground(Color.BLACK);
+        } else {
+                String defaultPath = System.getProperty("user.home") + "\\Documents";
+                    inputServerPath.setText(defaultPath);
+                    inputServerPath.setForeground(Color.BLACK);
+        }
+
         // Path Selector
         JButton pathSelectorButton = new JButton("...");
         pathSelectorButton.setBounds(333,180,45,45);
@@ -373,6 +404,7 @@ public class window {
             if (result == JFileChooser.APPROVE_OPTION) {
                 File selectedDir = chooser.getSelectedFile();
                 inputServerPath.setText(selectedDir.getAbsolutePath());
+                inputServerPath.setForeground(Color.BLACK);
             }
         });
         frame.add(pathSelectorButton);
@@ -387,7 +419,8 @@ public class window {
         nextButton.setBounds(315, 425, 80, 30);
         nextButton.addActionListener(e -> {
             if (validateNewServerData(inputServerName.getText(), inputServerPath.getText())) {
-                // todo: save the settomgs
+                newserverform.setServerName(inputServerName.getText());
+                newserverform.setServerPath(inputServerPath.getText());
                 if (isServerFileExists.isSelected()) {
                     // Skip version downloader
                     openServerGUI();
@@ -439,20 +472,133 @@ public class window {
         backButton.setBounds(5,440,80,20);
         frame.add(backButton);
         //
+        nextButton.setVisible(
+                validateNewServerData(inputServerName.getText(), inputServerPath.getText())
+        );
+        //
         frame.repaint();
         frame.revalidate();
     }
 
+    // *****************************
+    // Select Version Window
+    // *****************************
     private void selectVersionWindow() {
+        frame.getContentPane().removeAll();
+        frame.setSize(340,420);
+        frame.setLocationRelativeTo(null);
+        // Select Version
 
+        JLabel label = new JLabel("""
+                <html><b>Select version from list:</b></html>
+                """);
+        label.setBounds(40,30,150,30);
+        frame.add(label);
+
+        // API: https://piston-meta.mojang.com/mc/game/version_manifest_v2.json
+        Map<String,String> versions = AppUtils.getMCVersions();
+
+        JComboBox<String> inputVersion = new JComboBox<>();
+        for (String key : versions.keySet()) { inputVersion.addItem(key); }
+        inputVersion.setBounds(40,65,240,40);
+        frame.add(inputVersion);
+
+        JLabel updateVersionList = new JLabel("""
+                <html><a href="#">Help, i don't see newer versions here.</a></html>
+                """);
+        updateVersionList.setBounds(40,110,240,30);
+        frame.add(updateVersionList);
+
+        // Listeners
+        updateVersionList.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                super.mouseClicked(e);
+                Boolean result = AppUtils.updateLocalVersionList();
+                JOptionPane.showMessageDialog(
+                        null,
+                        result ? "Update was successful" : "Error on updating!",
+                        result ? "Success" : "Error",
+                        JOptionPane.INFORMATION_MESSAGE
+                );
+                if (result) {
+                    updateVersionList.setVisible(false);
+                    // update list elements
+                    Map<String,String> versions = AppUtils.getMCVersions();
+                    inputVersion.removeAllItems();
+                    for (String key : versions.keySet()) { inputVersion.addItem(key); }
+                    inputVersion.repaint();
+                    inputVersion.revalidate();
+                }
+            }
+        });
+        // Next
+        JButton nextButton = new JButton("Select Version");
+        nextButton.setBounds(40,160,240,30);
+        nextButton.addActionListener(e -> {
+            newserverform.setVersion(inputVersion.getSelectedItem().toString());
+            // Download server and go to setup
+            downloadServerFile(versions.get(newserverform.getVersion()));
+        });
+        inputVersion.addActionListener(e -> {
+            nextButton.setVisible(inputVersion.getSelectedItem() != null);
+        });
+        frame.add(nextButton);
+        // Back
+        JLabel backButton = new JLabel("""
+                <html><a href="#">back to previous</a></html>""");
+        backButton.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                newServer();
+            }
+        });
+        backButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        backButton.setBounds(5,360,160,20);
+        frame.add(backButton);
+        //
+        frame.repaint();
+        frame.revalidate();
+    }
+
+    private void downloadServerFile(String sha1) {
+        if (AppUtils.downloadServerFile(sha1, newserverform)) {
+            openGUIwithSave();
+        } else {
+            JOptionPane.showMessageDialog(
+                    null,
+                    "An error occurred while trying to download the file from the server.",
+                    "Error while downloading",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+        }
+    }
+
+    private void openGUIwithSave() {
+        if (FileService.addNewServer(newserverform)) {
+            Main.data = new Data(newserverform.getServerPath());
+            openServerGUI();
+        } else {
+            JOptionPane.showMessageDialog(
+                    null,
+                "An error occurred while trying to save. Please try again!",
+                    "Error while saving",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+        }
     }
 
     private void openServerGUI() {
-        new serverGUI();
+        Thread thread = new Thread(() -> {
+            frame.dispose();
+            new serverGUI();
+        });
+        thread.start();
     }
 
     // validate New Server Data
     private static Boolean validateNewServerData(String name, String path) {
+        if (name.startsWith("e.g. ")) return false;
         File dir = new File(path);
         if (!dir.exists() || !dir.isDirectory()) { return false; }
 
@@ -470,7 +616,7 @@ public class window {
     }
 
     // PlaceHolder Text Field
-    public class PlaceholderTextField extends JTextField {
+    public static class PlaceholderTextField extends JTextField {
 
         private String placeholder;
 

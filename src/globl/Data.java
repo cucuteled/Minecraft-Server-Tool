@@ -8,4 +8,7 @@ public class Data {
         this.workingPath = path;
     }
 
+    public String getWorkingPath() {
+        return workingPath;
+    }
 }
