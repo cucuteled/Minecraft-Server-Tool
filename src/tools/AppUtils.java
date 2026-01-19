@@ -6,9 +6,9 @@ import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.swing.*;
 import java.io.*;
-import java.net.URI;
-import java.net.URL;
+import java.net.*;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class AppUtils {
 
@@ -113,10 +113,10 @@ public class AppUtils {
         return true;
     }
 
-    public static Boolean isEulaAccepted(String file) {
-        File eulaFile = new File(file);
+    public static Boolean isEulaAccepted(String serverPath) {
+        File eulaFile = new File(serverPath + "\\\\eula.txt");
         if (!eulaFile.exists()) return false;
-        return FileService.readFile(eulaFile.getAbsolutePath()).toString().contains("eula=true");
+        return FileService.readFile(eulaFile.getAbsolutePath()).toString().toLowerCase().contains("eula=true");
     }
 
     public static Boolean acceptEula(String filePath) {
@@ -131,10 +131,90 @@ public class AppUtils {
             if (line.contains("eula=")) {
                 out += "\neula=true";
             } else {
-                out += line + "\n";
+                if (!line.isBlank()) {
+                    out += line + "\n";
+                }
             }
         }
         return FileService.writeFile(eulaFile,out);
     }
+
+    public static String getExternalIp() {
+        try {
+            URL whatismyip = new URL("http://checkip.amazonaws.com");
+            BufferedReader in = new BufferedReader(new InputStreamReader(
+                    whatismyip.openStream()));
+
+            String ip = in.readLine();
+            return ip;
+        } catch (Exception e) { throw new RuntimeException("Can't fetch ip"); }
+    }
+
+    public static String getInternalIp() {
+        try {
+            return InetAddress.getLocalHost().toString();
+        } catch (Exception e) {
+            return "localhost";
+        }
+    }
+
+    public static void validatePort(int port) {
+        if (port < 1 || port > 65535) {
+            throw new IllegalArgumentException("Port must be between 1 and 65535");
+        }
+
+        try (java.net.ServerSocket socket = new java.net.ServerSocket(port)) {
+            socket.setReuseAddress(true);
+        } catch (IOException e) {
+            throw new IllegalStateException("Port " + port + " is already in use", e);
+        }
+    }
+
+    public static boolean isPortOpen(String ip, int port, boolean isServerRunning) {
+        AtomicReference<ServerSocket> serverRef = new AtomicReference<>();
+        Thread serverThread = null;
+
+        if (!isServerRunning) {
+            try {
+                ServerSocket ss = new ServerSocket(port);
+                ss.setReuseAddress(true);
+                serverRef.set(ss);
+
+                serverThread = new Thread(() -> {
+                    try {
+                        while (!serverRef.get().isClosed()) {
+                            serverRef.get().accept();
+                        }
+                    } catch (IOException ignored) {}
+                });
+
+                serverThread.setDaemon(true);
+                serverThread.start();
+
+                Thread.sleep(50);
+
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
+        boolean isOpen;
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(ip, port), 1500);
+            isOpen = true;
+        } catch (IOException e) {
+            isOpen = false;
+        }
+
+        ServerSocket ss = serverRef.get();
+        if (ss != null) {
+            try {
+                ss.close();
+            } catch (IOException ignored) {}
+        }
+
+        return isOpen;
+    }
+
 
 }
