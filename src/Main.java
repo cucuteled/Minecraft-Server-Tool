@@ -1,7 +1,5 @@
 import globl.Data;
 
-import java.awt.*;
-
 public class Main {
 
     public static window AppWindow;

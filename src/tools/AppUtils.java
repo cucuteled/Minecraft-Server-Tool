@@ -1,9 +1,8 @@
 package tools;
 
 import data.NewServerForm;
+import globl.Data;
 
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineManager;
 import javax.swing.*;
 import java.io.*;
 import java.net.*;
@@ -152,7 +151,7 @@ public class AppUtils {
 
     public static String getInternalIp() {
         try {
-            return InetAddress.getLocalHost().toString();
+            return InetAddress.getLocalHost().toString().split("/")[1];
         } catch (Exception e) {
             return "localhost";
         }
@@ -214,6 +213,24 @@ public class AppUtils {
         }
 
         return isOpen;
+    }
+
+    public static void saveServerData(Data data) { // Properties txt file
+        File propertiesFile = new File(data.getWorkingPath() + "\\\\server.properties");
+        StringBuilder newProperties = new StringBuilder();
+        List<String> currentProperties = FileService.readFile(propertiesFile.getAbsolutePath())
+                .stream()
+                .map(o -> (String) o)
+                .toList();
+        newProperties.append(currentProperties.get(0)).append("\n");
+        newProperties.append(currentProperties.get(1)).append("\n");
+        for (Map.Entry<String, String> entry : data.getPropertiesMap().entrySet()) {
+            newProperties.append(entry.getKey())
+                    .append("=")
+                    .append(entry.getValue())
+                    .append("\n");
+        }
+        FileService.writeFile(propertiesFile, newProperties.toString());
     }
 
 

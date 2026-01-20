@@ -1,27 +1,23 @@
 import globl.global;
 import tools.AppUtils;
+import tools.IpFieldValidator;
 
-import javax.print.DocFlavor;
-import javax.print.attribute.standard.JobKOctets;
 import javax.swing.*;
-import javax.swing.event.MenuEvent;
-import javax.swing.event.MenuListener;
 import java.awt.*;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.awt.event.*;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
-import java.net.InetAddress;
-import java.security.spec.ECField;
-import java.util.Map;
+import java.io.OutputStream;
 
 public class serverGUI {
 
     private JFrame frame = new JFrame(new File(Main.data.getWorkingPath()).getName());
     private final String serverPath = Main.data.getWorkingPath();
+    private boolean isFirstSetup = false;
+
+    public JTextArea consoleWindow = new JTextArea("");
+    private serverThread server;
 
     public serverGUI() {
             // Set window propeties;
@@ -33,10 +29,10 @@ public class serverGUI {
                 showMainWindow();
             } else {
                 showFirstSetup();
+                isFirstSetup = true;
             }
             // Show window
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            frame.setVisible(true);
     }
 
     private void showFirstSetup() {
@@ -65,15 +61,15 @@ public class serverGUI {
 
                      String line;
                      while ((line = reader.readLine()) != null) {
-                        System.out.println("[SERVER] " + line);
+                        //System.out.println("[SERVER] " + line);
                      }
                 } catch (Exception e) {
-                    System.out.println(e);
+                    //System.out.println(e);
                 }
                 int exitCode = process.waitFor();
                 //
             } catch (Exception e) {
-                System.out.println(e);
+                //System.out.println(e);
             }
             label.setBounds(110,-35,340,120);
             label.setText("<html><h1>Success!</h1></html>");
@@ -165,8 +161,9 @@ public class serverGUI {
         }
 
         // Set Port
-        JLabel portlabel = new JLabel("Port: ");
-        portlabel.setBounds(20,55, 60, 30);
+        JLabel portlabel = new JLabel("<html>Port:  &emsp;&emsp;&emsp;&emsp;&emsp;  " +
+                "<span style='font-size:8px; color:gray;'><i>(Default: 25565)</i></span></html>");
+        portlabel.setBounds(20,55, 300, 30);
         ipSettingsPanel.add(portlabel);
 
         JTextField inputPort = new JTextField();
@@ -175,7 +172,7 @@ public class serverGUI {
 
         JLabel inputPortErrorLabel = new JLabel("");
         inputPortErrorLabel.setText("");
-        inputPortErrorLabel.setBounds(20,90,300,30);
+        inputPortErrorLabel.setBounds(20,80,300,30);
         ipSettingsPanel.add(inputPortErrorLabel);
 
         inputPort.addKeyListener(new KeyAdapter() {
@@ -189,17 +186,54 @@ public class serverGUI {
             }
         });
 
-        //todo:: interal server let be modifiable 220height
+        // Settings of internal server ip
+        JLabel internalIpLabel = new JLabel("Internal IP:");
+        internalIpLabel.setBounds(20,180,80,30);
+        ipSettingsPanel.add(internalIpLabel);
+
+        JTextField inputInternalIp = new JTextField();
+        inputInternalIp.setText(Main.data.getMyInternalIp());
+        IpFieldValidator.apply(inputInternalIp);
+        inputInternalIp.setBounds(95,180,105,30);
+        inputInternalIp.addFocusListener(new FocusAdapter() { // Check if there's something behind the IP (Doesn't matter)
+            @Override
+            public void focusLost(FocusEvent e) {
+                super.focusLost(e);
+                Thread thread = new Thread(() -> {
+                    ProcessBuilder pb = new ProcessBuilder(
+                            "cmd", "/c", "ping " + inputInternalIp.getText() + " -n 1 -w 500");
+                try {
+                    Process p = pb.start();
+                    int exitCode = p.waitFor();
+                    inputInternalIp.setForeground(exitCode == 0 ? Color.black : Color.orange);
+                } catch (Exception err) {}
+                });
+                thread.start();
+            }
+        });
+        ipSettingsPanel.add(inputInternalIp);
+        // Set internal ip to default
+        JLabel setInternalIPToDefault = new JLabel("<html><a href=\"#\"><i>(Default)</i></a></html>");
+        setInternalIPToDefault.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        setInternalIPToDefault.setBounds(210,180,60,30);
+        setInternalIPToDefault.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                super.mouseClicked(e);
+                inputInternalIp.setText(AppUtils.getInternalIp());
+            }
+        });
+        ipSettingsPanel.add(setInternalIPToDefault);
 
         // Check Port is Open
-        //
+
         JLabel checkPortOpen =  new JLabel("<html><a href=\"#\">Check is Port Open?</a></html>");
-        checkPortOpen.setBounds(20,150,200,30);
+        checkPortOpen.setBounds(20,130,200,30);
         checkPortOpen.setCursor(new Cursor(Cursor.HAND_CURSOR));
         checkPortOpen.setVisible(isExternalIpAvailable);
 
         JLabel openPortGuide = new JLabel("<html><a href=\"#\"> #How to open port?</a></html");
-        openPortGuide.setBounds(150,150,200,30);
+        openPortGuide.setBounds(150,130,200,30);
         openPortGuide.setCursor(new Cursor(Cursor.HAND_CURSOR));
         openPortGuide.setVisible(false);
 
@@ -245,19 +279,18 @@ public class serverGUI {
 
         ipSettingsPanel.add(checkPortOpen);
         //
-        JLabel ipLabel = new JLabel((isExternalIpAvailable ? "<html><b>You're external ip: </b><i>" : "<html><b>You're internal ip: </b><i>") +
+        JLabel ipLabel = new JLabel((isExternalIpAvailable ? "<html><b>You're external IP: </b><i>" : "<html><b>You're internal IP: </b><i>") +
                 Main.data.getMyExternalIp() + " : " + Main.data.getMyServerPort() +
                 "</i></html>");
-        ipLabel.setBounds(20,120,300,40);
+        ipLabel.setBounds(20,100,300,40);
         ipSettingsPanel.add(ipLabel);
 
         boolean finalIsExternalIpAvailable = isExternalIpAvailable;
         inputPort.addActionListener(e -> {
             try {
-                int port = Integer.parseInt(inputPort.getText());
-                Main.data.setMyServerPort(port);
-                ipLabel.setText(finalIsExternalIpAvailable ? "<html><b>You're external ip: </b><i>" : "<html><b>You're internal ip: </b><i>" +
-                        Main.data.getMyExternalIp() + ":" + Main.data.getMyServerPort() +
+                if (inputPort.getText().isBlank()) inputPort.setText("25565");
+                ipLabel.setText((finalIsExternalIpAvailable ? "<html><b>You're external IP: </b><i>" : "<html><b>You're internal IP: </b><i>") +
+                        Main.data.getMyExternalIp() + " : " + inputPort.getText() +
                         "</i></html>");
                 inputPortErrorLabel.setText("");
                 inputPort.setForeground(Color.black);
@@ -274,15 +307,33 @@ public class serverGUI {
             checkPortOpen.setText("<html><a href=\"#\">Check is Port Open?</a></html>");
             openPortGuide.setVisible(false);
             //
+            ipLabel.repaint();
+            ipLabel.revalidate();
             ipSettingsPanel.repaint();
             ipSettingsPanel.revalidate();
         });
 
-        JButton nextButton = new JButton("Countinue");
+        JButton nextButton = new JButton( isFirstSetup? "Continue" : "Save");
         nextButton.setBounds(10,280,265,30);
+        nextButton.addActionListener(l -> {
+            Main.data.setMyInternalIp(inputInternalIp.getText());
+            if (inputPort.getText().isBlank()) inputPort.setText("25565");
+            Main.data.setMyServerPort(Integer.parseInt( inputPort.getText() ));
+            if (isFirstSetup) showMainWindow();
+            if (Main.data.isServerRunning()) {
+                JOptionPane.showMessageDialog(
+                        null,
+                        "You need to restart the server, for the modifications to take place.",
+                        "Warning",
+                        JOptionPane.WARNING_MESSAGE
+                );
+            }
+            AppUtils.saveServerData(Main.data); // save
+            ipSettingsPanel.dispose();
+        });
         ipSettingsPanel.add(nextButton);
-        ipSettingsPanel.add(inputPort);
 
+        ipSettingsPanel.add(inputPort);
         //
         ipSettingsPanel.repaint();
         ipSettingsPanel.revalidate();
@@ -290,8 +341,9 @@ public class serverGUI {
 
     private void showMainWindow() {
         frame.getContentPane().removeAll();
-        frame.setSize(340,420);
+        frame.setSize(720,520);
         frame.setLocationRelativeTo(null);
+        frame.setVisible(true);
         //
         // --------------
         // Menu Bar
@@ -302,11 +354,116 @@ public class serverGUI {
         JMenuItem ipSettingsItem = new JMenuItem("IP Settings");
         ipSettingsItem.addActionListener(e -> showIPSettingsPanel());
         settingsMenu.add(ipSettingsItem);
+
+        JMenuItem propertiesSettingsMenu = new JMenuItem("Settings");
+        propertiesSettingsMenu.addActionListener(a -> {
+            // todo: show settings menu
+        });
+        settingsMenu.add(propertiesSettingsMenu);
+        // About
+        settingsMenu.addSeparator();
+        JMenuItem aboutInfo = new JMenuItem("About");
+        aboutInfo.addActionListener(a -> {
+            JOptionPane.showMessageDialog(
+                    null,
+                    "Developed by cucuteled @All rights reserved\n" +
+                    "\nMinecraft Server files are provided by Mojang API.",
+                    "About",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+        });
+        settingsMenu.add(aboutInfo);
         //
         menuBar.add(settingsMenu);
         frame.setJMenuBar(menuBar);
+        // ------------
+        // Tools
+        // -------------
+        JMenu toolsMenu = new JMenu("Tools");
+
+        JMenuItem logSearcher = new JMenuItem("Log Searcher");
+        logSearcher.addActionListener(e -> {
+            if (Main.data.isServerRunning() || !new File(Main.data.getWorkingPath() + "\\\\logs").exists()) {
+                JOptionPane.showMessageDialog(
+                        null,
+                        "In order to use this function, you need to stop the server first.\nor there's no logs yet.",
+                        "Warning",
+                        JOptionPane.WARNING_MESSAGE
+                );
+            } else {
+                //todo: open logsearcher
+            }
+        });
+        toolsMenu.add(logSearcher);
+
+        menuBar.add(toolsMenu);
+        // -------------
+        // Main Window
+        // -------------
+        // Console
+        JScrollPane consoleScrollPane = new JScrollPane();
+        consoleScrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        consoleScrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+        consoleScrollPane.setBounds(5,5,400,420);
+
+        consoleWindow.setEditable(false);
+        consoleWindow.setBackground(Color.white);
+        consoleWindow.setMinimumSize(new Dimension(400,440));
+        consoleScrollPane.setViewportView(consoleWindow);
+
+        frame.add(consoleScrollPane);
+        // Start - Stop Button
+        JButton launchButton = new JButton("start");
+        launchButton.setBounds(415,5,280,30);
+        // Options
+        JCheckBox onlineModeToggle = new JCheckBox("Online mode \uD83D\uDEC8");
+        onlineModeToggle.setBounds(415,40,200,30);
+        onlineModeToggle.setToolTipText("<html>Enable official Authentication.<br>" +
+                "This will require to have a purchased copy of the game.<br>" +
+                "If you or somebody use cracked client, uncheck this.</html>");
+        onlineModeToggle.setSelected(Main.data.getProperty("online-mode").equalsIgnoreCase("true"));
+        onlineModeToggle.addActionListener(e -> {
+            if (!Main.data.isServerRunning()) {
+                Main.data.setProperty("online-mode", onlineModeToggle.isSelected() ? "true" : "false");
+                AppUtils.saveServerData(Main.data);
+            }
+        });
+        frame.add(onlineModeToggle);
+
+        // Console INPUT
+        JTextField consoleInputField = new JTextField();
+        consoleInputField.setBounds(5,425,350,30);
+        consoleInputField.setEnabled(false);
+        frame.add(consoleInputField);
+        JButton consoleInputSend = new JButton(">>");
+        consoleInputSend.setBounds(355,425,50,30);
+        consoleInputSend.setEnabled(false);
+        frame.add(consoleInputSend);
+        //
+        launchButton.addActionListener(a -> {
+            if (!Main.data.isServerRunning()) {
+                launchButton.setText("Stop"); //todo:: launch
+                this.server = new serverThread(consoleWindow,serverPath);
+                server.start();
+            } else {
+                launchButton.setText("Start"); //todo:: stop
+                this.server.sendCommand("stop");
+            }
+        });
+        frame.add(launchButton);
+        //
+        frame.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                if (Main.data.isServerRunning()) server.sendCommand("stop"); //todo:: are you sure you want to exit?
+            }
+        });
+
         //
         frame.repaint();
         frame.revalidate();
     }
+
 }
+
+
