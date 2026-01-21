@@ -1,14 +1,17 @@
 import globl.global;
 import tools.AppUtils;
+import tools.FileService;
 import tools.IpFieldValidator;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.ZipFile;
 
 public class serverGUI {
 
@@ -16,8 +19,16 @@ public class serverGUI {
     private final String serverPath = Main.data.getWorkingPath();
     private boolean isFirstSetup = false;
 
+    // Server controls
+    public JButton launchButton;
+    public JTextField consoleInputField;
+    public JButton consoleInputSend;
+    public JCheckBox onlineModeToggle;
     public JTextArea consoleWindow = new JTextArea("");
     private serverThread server;
+
+    private JLabel totalSizeLabel;
+    public  JLabel usageStatusLabel;
 
     public serverGUI() {
             // Set window propeties;
@@ -339,12 +350,31 @@ public class serverGUI {
         ipSettingsPanel.revalidate();
     }
 
+    private void setTotalSizeLabel() {
+        float sizeGb = (float) AppUtils.getFolderSize(new File(serverPath)) / 1024 / 1024;
+        boolean isGB = false;
+        if (sizeGb > 1000.0) {
+            sizeGb = sizeGb / 1024;
+            isGB = true;
+        }
+        totalSizeLabel.setText("<html><i>Server size: " + String.format("%.2f", sizeGb) + (isGB ? " GB" : " MB") + "</i></html>");
+        FontMetrics fm = totalSizeLabel.getFontMetrics(totalSizeLabel.getFont());
+        totalSizeLabel.setBounds(820 - fm.stringWidth(totalSizeLabel.getText()) - 10, 430,200,30);
+    }
+
     private void showMainWindow() {
         frame.getContentPane().removeAll();
         frame.setSize(720,520);
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
-        //
+        // Info Label
+        totalSizeLabel = new JLabel("");
+        setTotalSizeLabel();
+        frame.add(totalSizeLabel);
+
+        usageStatusLabel = new JLabel("");
+        usageStatusLabel.setBounds(405,430,200,30);
+        frame.add(usageStatusLabel);
         // --------------
         // Menu Bar
         // --------------
@@ -357,7 +387,7 @@ public class serverGUI {
 
         JMenuItem propertiesSettingsMenu = new JMenuItem("Settings");
         propertiesSettingsMenu.addActionListener(a -> {
-            // todo: show settings menu
+            showPropertiesMenuSettings();
         });
         settingsMenu.add(propertiesSettingsMenu);
         // About
@@ -391,10 +421,16 @@ public class serverGUI {
                         JOptionPane.WARNING_MESSAGE
                 );
             } else {
-                //todo: open logsearcher
+                showToolLogSeacher();
             }
         });
         toolsMenu.add(logSearcher);
+
+        JMenuItem webServer = new JMenuItem("webServer");
+        webServer.addActionListener(a -> {
+            //todo: webserver
+        });
+        toolsMenu.add(webServer);
 
         menuBar.add(toolsMenu);
         // -------------
@@ -413,10 +449,10 @@ public class serverGUI {
 
         frame.add(consoleScrollPane);
         // Start - Stop Button
-        JButton launchButton = new JButton("start");
+        launchButton = new JButton("start");
         launchButton.setBounds(415,5,280,30);
         // Options
-        JCheckBox onlineModeToggle = new JCheckBox("Online mode \uD83D\uDEC8");
+        onlineModeToggle = new JCheckBox("Online mode \uD83D\uDEC8");
         onlineModeToggle.setBounds(415,40,200,30);
         onlineModeToggle.setToolTipText("<html>Enable official Authentication.<br>" +
                 "This will require to have a purchased copy of the game.<br>" +
@@ -431,31 +467,65 @@ public class serverGUI {
         frame.add(onlineModeToggle);
 
         // Console INPUT
-        JTextField consoleInputField = new JTextField();
+        consoleInputField = new JTextField();
         consoleInputField.setBounds(5,425,350,30);
         consoleInputField.setEnabled(false);
+        consoleInputField.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                super.keyPressed(e);
+                if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                    if (Main.data.isServerRunning())  {
+                        server.sendCommand(consoleInputField.getText());
+                        consoleInputField.setText("");
+                    }
+                }
+            }
+        });
         frame.add(consoleInputField);
-        JButton consoleInputSend = new JButton(">>");
+
+        consoleInputSend = new JButton(">>");
         consoleInputSend.setBounds(355,425,50,30);
         consoleInputSend.setEnabled(false);
+        consoleInputSend.addActionListener(a -> {
+            if (Main.data.isServerRunning())  {
+                server.sendCommand(consoleInputField.getText());
+                consoleInputField.setText("");
+            }
+        });
         frame.add(consoleInputSend);
         //
         launchButton.addActionListener(a -> {
             if (!Main.data.isServerRunning()) {
-                launchButton.setText("Stop"); //todo:: launch
+                launchButton.setEnabled(false);
+                frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+                launchButton.setBackground(new Color(196, 134, 44));
+                consoleWindow.setText(""); // clear previous logs from console
                 this.server = new serverThread(consoleWindow,serverPath);
                 server.start();
             } else {
-                launchButton.setText("Start"); //todo:: stop
+                launchButton.setEnabled(false);
+                launchButton.setBackground(new Color(196, 134, 44));
                 this.server.sendCommand("stop");
             }
         });
         frame.add(launchButton);
         //
+
         frame.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
-                if (Main.data.isServerRunning()) server.sendCommand("stop"); //todo:: are you sure you want to exit?
+                int result = JOptionPane.showConfirmDialog(
+                        null,
+                        "Server is running. Are you sure you want to exit?",
+                        "Confirm Exit",
+                        JOptionPane.YES_NO_OPTION
+                );
+
+                if (result == JOptionPane.YES_OPTION) {
+                    server.sendCommand("stop");
+                    frame.dispose();
+                }
             }
         });
 
@@ -463,6 +533,183 @@ public class serverGUI {
         frame.repaint();
         frame.revalidate();
     }
+
+    // Callable from outside CLASS (SERVERTHREAD)
+    public void GUIstateServerStarted() {
+        launchButton.setEnabled(true);
+        launchButton.setText("Stop");
+        launchButton.setBackground(new Color(187, 34, 34));
+        //
+        consoleInputField.setEnabled(true);
+        consoleInputSend.setEnabled(true);
+        onlineModeToggle.setEnabled(false);
+    }
+    public void GUIstateServerStopped() {
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        launchButton.setEnabled(true);
+        launchButton.setText("Start");
+        launchButton.setBackground(UIManager.getColor("Button.background"));
+        //
+        consoleInputField.setEnabled(false);
+        consoleInputSend.setEnabled(false);
+        onlineModeToggle.setEnabled(true);
+    }
+
+    //
+
+    private void showPropertiesMenuSettings() {
+        JFrame propertiesSettingsPanel = new JFrame("Properties Settings");
+        propertiesSettingsPanel.setSize(480,420);
+        propertiesSettingsPanel.setLocationRelativeTo(null);
+        propertiesSettingsPanel.setResizable(false);
+        propertiesSettingsPanel.setIconImage(global.appIMG);
+        propertiesSettingsPanel.setLayout(null);
+        //
+
+        //
+        propertiesSettingsPanel.revalidate();
+        propertiesSettingsPanel.repaint();
+        propertiesSettingsPanel.setVisible(true);
+    }
+
+    private void showToolLogSeacher() {
+        JFrame toolLogSeacherPanel = new JFrame("Log Seacher");
+        toolLogSeacherPanel.setSize(520,320);
+        toolLogSeacherPanel.setLocationRelativeTo(null);
+        toolLogSeacherPanel.setResizable(false);
+        toolLogSeacherPanel.setIconImage(global.appIMG);
+        toolLogSeacherPanel.setLayout(null);
+        //
+        JLabel inputFieldLabel = new JLabel("Filter:");
+        inputFieldLabel.setBounds(5,5,200,30);
+        toolLogSeacherPanel.add(inputFieldLabel);
+
+        JTextField inputField = new JTextField();
+        inputField.setBounds(40,5,380,30);
+        inputField.setToolTipText("Use ',' to distinct keywords. For example: hi, can you, please");
+        toolLogSeacherPanel.add(inputField);
+
+        // Logs result
+        JScrollPane scrollPane = new JScrollPane();
+        scrollPane.setBounds(2,38,500,240);
+        scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+
+        JTextArea logs = new JTextArea();
+        logs.setEditable(false);
+        scrollPane.setViewportView(logs);
+        toolLogSeacherPanel.add(scrollPane);
+        //
+        JButton startSearch = new JButton("Search");
+        startSearch.setBounds(420,5,80,30);
+        startSearch.setEnabled(false);
+        inputField.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                super.keyPressed(e);
+                startSearch.setEnabled((inputField.getText().length() >= 2));
+            }
+        });
+        startSearch.addActionListener(a -> {
+            if (inputField.getText().isBlank()) return;
+            logs.setText(""); // clear previous
+            inputField.setEnabled(false);
+            startSearch.setEnabled(false);
+            new Thread(() ->{
+               File logsPath = new File(serverPath + "\\\\logs");
+               if (!logsPath.exists()) return;
+               File[] files = logsPath.listFiles();
+               if (files == null || files.length == 0) return;
+
+               // Filter
+               List<String> filteredKeyWords = new ArrayList<>(List.of(inputField.getText().split(",")));
+               int totalFiles = files.length;
+               int count = 0;
+               for (File file : files ) {
+                   String fileName = file.getName().toLowerCase();
+                   List<String> lines;
+                   count = count++;
+                   toolLogSeacherPanel.setTitle("Log Searcher (" + count + "/" + totalFiles + ")");
+                   boolean isThereResult = false;
+
+                   // ZIP
+                   if (fileName.endsWith(".zip")) {
+                       lines = new ArrayList<>();
+                       try (ZipFile zip = new ZipFile(file)) {
+                           zip.stream().forEach(entry -> {
+
+                               try (InputStream is = zip.getInputStream(entry);
+                                    BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+
+                                   String line;
+                                   while ((line = reader.readLine()) != null) {
+                                       lines.add(line);
+                                   }
+
+                               } catch (IOException e) {
+                                   logs.append("Error reading file: " + e.getMessage());
+                               }
+                           });
+                       } catch (IOException e) {
+                           logs.append("Error reading .ZIP file: " + e.getMessage());
+                       }
+                   }
+
+                   // GZ
+                   else if (fileName.endsWith(".gz")) {
+                       lines = new ArrayList<>();
+
+                       try (FileInputStream fis = new FileInputStream(file);
+                            GZIPInputStream gis = new GZIPInputStream(fis);
+                            BufferedReader reader = new BufferedReader(new InputStreamReader(gis, StandardCharsets.UTF_8))) {
+
+                           String line;
+                           while ((line = reader.readLine()) != null) {
+                               lines.add(line);
+                           }
+
+                       } catch (IOException e) {
+                           logs.append("Error reading .GZ file: " + e.getMessage());
+                       }
+                   }
+
+                   // Normal txt
+                   else if (fileName.endsWith(".log") || fileName.endsWith(".txt")) {
+                       lines = FileService.readFile(file.getAbsolutePath())
+                               .stream()
+                               .map(o -> (String) o)
+                               .toList();
+                   } else {
+                       lines = new ArrayList<>();
+                   }
+
+                   if (lines.isEmpty()) continue;
+
+                   for (String line : lines) {
+                       for (String filter : filteredKeyWords) {
+                           if (line.toLowerCase().contains(filter.toLowerCase().trim().replaceAll(" ", ""))) {
+                               if (!isThereResult) {
+                                   logs.append("\n>>>>>>> " + file.getName() + "::\n");
+                                   isThereResult = true;
+                               }
+                               logs.append("  " + line + "\n");
+                               break;
+                           }
+                       }
+                   }
+               }
+                inputField.setEnabled(true);
+                startSearch.setEnabled(true);
+                toolLogSeacherPanel.setTitle("Log Searcher");
+            }).start();
+        });
+        toolLogSeacherPanel.add(startSearch);
+        //
+        toolLogSeacherPanel.revalidate();
+        toolLogSeacherPanel.repaint();
+        toolLogSeacherPanel.setVisible(true);
+    }
+
 
 }
 

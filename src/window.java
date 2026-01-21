@@ -120,10 +120,16 @@ public class window {
         frame.add(scrollPane);
         Thread loadimgs = new Thread(() -> {
             File screenshotsPath = new File(global.minecraftPath + "\\screenshots\\");
-            List<String> imgs = new ArrayList<>(List.of(Objects.requireNonNull(screenshotsPath.list())));
+            List<String> imgs;
+            try {
+                imgs = new ArrayList<>(List.of(Objects.requireNonNull(screenshotsPath.list())));
+            } catch (Exception e) {
+                return;
+            }
             imgs = imgs.reversed();
             screenshotPanel.setPreferredSize(new Dimension(650,imgs.size() / 3 * 135));
             for (String img : imgs) {
+                if (!img.endsWith(".png")) continue;
                 String uri = new File(
                         screenshotsPath, img
                 ).toURI().toString();
@@ -591,7 +597,7 @@ public class window {
     private void openServerGUI() {
         Thread thread = new Thread(() -> {
             frame.dispose();
-            new serverGUI();
+            Main.mainWindow = new serverGUI();
         });
         thread.start();
     }

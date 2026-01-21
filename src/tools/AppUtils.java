@@ -233,5 +233,21 @@ public class AppUtils {
         FileService.writeFile(propertiesFile, newProperties.toString());
     }
 
+    public static long getFolderSize(File folder) {
+        long length = 0;
+
+        File[] files = folder.listFiles();
+        if (files == null) return 0;
+
+        for (File file : files) {
+            if (file.isFile()) {
+                length += file.length();
+            } else {
+                length += getFolderSize(file);
+            }
+        }
+        return length;
+    }
+
 
 }

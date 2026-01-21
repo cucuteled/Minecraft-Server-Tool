@@ -10,6 +10,8 @@ public class serverThread extends Thread {
     private final String serverPath;
     private Process process;
 
+
+
     public serverThread(JTextArea consoleWindow, String serverPath) {
         this.consoleWindow = consoleWindow;
         this.serverPath = serverPath;
@@ -24,12 +26,22 @@ public class serverThread extends Thread {
         try {
             process = pb.start();
             Main.data.setServerRunning(true);
+
+            long pid = process.pid();
+
+            ServerMonitor monitor =
+                    new ServerMonitor(pid, Main.mainWindow.usageStatusLabel, this.process);
+
+            Thread monitorThread = new Thread(monitor);
+            monitorThread.start();
+
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(process.getInputStream()))) {
 
                 String line;
                 while ((line = reader.readLine()) != null) {
                     consoleWindow.append(line + "\n");
+                    if (line.contains(": Done (")) Main.mainWindow.GUIstateServerStarted();
                 }
             } catch (Exception e) {
                 consoleWindow.append("\n--ERROR---------------------\\x1B[31m \n" + e.getMessage() + "\n \\x1B[0m----------------------------\n");
@@ -39,11 +51,14 @@ public class serverThread extends Thread {
         } catch (Exception e) {
             consoleWindow.append("\n--ERROR---------------------\\x1B[31m \n" + e.getMessage() + "\n \\x1B[0m----------------------------\n");
         }
+        System.out.println("szerver leállt");
         Main.data.setServerRunning(false);
+        Main.mainWindow.GUIstateServerStopped();
     }
 
     public void stopThread() {
         Main.data.setServerRunning(false);
+        Main.mainWindow.GUIstateServerStopped();
         this.interrupt();
     }
 
@@ -59,5 +74,6 @@ public class serverThread extends Thread {
             if (cmd.equalsIgnoreCase("stop")) stopThread();
         }
     }
+
 
 }
