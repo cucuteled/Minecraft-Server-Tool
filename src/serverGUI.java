@@ -8,10 +8,12 @@ import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
+import java.util.*;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipFile;
+import javax.swing.JPanel;
+
 
 public class serverGUI {
 
@@ -421,7 +423,7 @@ public class serverGUI {
                         JOptionPane.WARNING_MESSAGE
                 );
             } else {
-                showToolLogSeacher();
+                showToolLogSearcher();
             }
         });
         toolsMenu.add(logSearcher);
@@ -515,16 +517,18 @@ public class serverGUI {
         frame.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
-                int result = JOptionPane.showConfirmDialog(
-                        null,
-                        "Server is running. Are you sure you want to exit?",
-                        "Confirm Exit",
-                        JOptionPane.YES_NO_OPTION
-                );
+                if (Main.data.isServerRunning()) {
+                    int result = JOptionPane.showConfirmDialog(
+                            null,
+                            "Server is running. Are you sure you want to exit?",
+                            "Confirm Exit",
+                            JOptionPane.YES_NO_OPTION
+                    );
 
-                if (result == JOptionPane.YES_OPTION) {
-                    server.sendCommand("stop");
-                    frame.dispose();
+                    if (result == JOptionPane.YES_OPTION) {
+                        server.sendCommand("stop");
+                        frame.dispose();
+                    }
                 }
             }
         });
@@ -534,7 +538,9 @@ public class serverGUI {
         frame.revalidate();
     }
 
+    // ===========================================
     // Callable from outside CLASS (SERVERTHREAD)
+    // ===========================================
     public void GUIstateServerStarted() {
         launchButton.setEnabled(true);
         launchButton.setText("Stop");
@@ -555,7 +561,15 @@ public class serverGUI {
         onlineModeToggle.setEnabled(true);
     }
 
-    //
+    // =================
+    // Properties Menu
+    // =================
+
+    private List<PropertiesObject> properties = new ArrayList<>();
+
+    private void refreshMainWindowAffectedByProperties() {
+        onlineModeToggle.setSelected(Main.data.getProperty("online-mode").equalsIgnoreCase("true"));
+    }
 
     private void showPropertiesMenuSettings() {
         JFrame propertiesSettingsPanel = new JFrame("Properties Settings");
@@ -564,30 +578,165 @@ public class serverGUI {
         propertiesSettingsPanel.setResizable(false);
         propertiesSettingsPanel.setIconImage(global.appIMG);
         propertiesSettingsPanel.setLayout(null);
-        //
+        propertiesSettingsPanel.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
+        // Search Bar
+        JLabel searchLabel = new JLabel("Search:");
+        searchLabel.setBounds(5,3,80,30);
+        propertiesSettingsPanel.add(searchLabel);
 
+        JTextField inputSearch = new JTextField();
+        inputSearch.setBounds(52,3,410,30);
+
+        // Properties
+        JScrollPane scrollPane = new JScrollPane();
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.setBounds(0,35,465,350);
+
+        JPanel content = new JPanel();
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+
+        scrollPane.setViewportView(content);
+        propertiesSettingsPanel.add(scrollPane);
+
+        if (properties.isEmpty()) {
+            Map<String, String> propertiesMap = Main.data.getPropertiesMap();
+
+            for (Map.Entry<String, String> entry : propertiesMap.entrySet()) {
+                String key = entry.getKey();
+                String value = entry.getValue();
+
+                properties.add(new PropertiesObject(key, value));
+            }
+
+            for (PropertiesObject p : properties) {
+                content.add(p.getObject());
+            }
+        }
+        content.revalidate();
+        content.repaint();
+        //
+        inputSearch.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyReleased(KeyEvent e) {
+                super.keyReleased(e);
+                String search = inputSearch.getText().toLowerCase();
+
+                Component[] comps = content.getComponents();
+                List<Component> list = new ArrayList<>(Arrays.asList(comps));
+
+                list.sort((c1, c2) -> {
+                    PropertiesObject p1 = (PropertiesObject) ((JComponent)c1).getClientProperty("prop");
+                    PropertiesObject p2 = (PropertiesObject) ((JComponent)c2).getClientProperty("prop");
+
+                    boolean m1 = p1.getPropertiesName().toLowerCase().contains(search);
+                    boolean m2 = p2.getPropertiesName().toLowerCase().contains(search);
+
+                    if (m1 && !m2) return -1;
+                    if (m2 && !m1) return 1;
+
+                    return p1.getPropertiesName().compareToIgnoreCase(p2.getPropertiesName());
+                });
+
+                content.removeAll();
+
+                for (Component c : list) {
+                    if (!search.isBlank()) {
+                        PropertiesObject p = (PropertiesObject) ((JComponent) c).getClientProperty("prop");
+                        JLabel nameLabel = (JLabel) ((JComponent) c).getClientProperty("nameLabel");
+
+
+                        boolean match = p.getPropertiesName().toLowerCase().contains(search);
+
+                        if (match) {
+                            nameLabel.setOpaque(true);
+                            nameLabel.setBackground(Color.ORANGE);
+                        } else {
+                            nameLabel.setOpaque(false);
+                            nameLabel.setBackground(null);
+                        }
+                    }
+                    content.add(c);
+                }
+
+                scrollPane.getVerticalScrollBar().setValue(0);
+                content.revalidate();
+                content.repaint();
+            }
+        });
+        propertiesSettingsPanel.add(inputSearch);
+        //
+        propertiesSettingsPanel.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                super.windowClosing(e);
+                boolean isThereChange = false;
+                for (PropertiesObject p : properties) {
+                    if (p.isThereChange()) {
+                        isThereChange = true;
+                        break;
+                    }
+                }
+                if (isThereChange) {
+                    int result = JOptionPane.showConfirmDialog(
+                            null,
+                            "Do you want to save changes?",
+                            "Confirm Save",
+                            JOptionPane.YES_NO_OPTION
+                    );
+
+                    if (result == JOptionPane.YES_OPTION) {
+                        // Save changes
+                        for (PropertiesObject p : properties) {
+                            if (p.isThereChange()) {
+                               Main.data.setProperty(p.getPropertiesName(),p.getValue());
+                            }
+                        }
+                        AppUtils.saveServerData(Main.data);
+                        refreshMainWindowAffectedByProperties();
+                        if (Main.data.isServerRunning()) {
+                            JOptionPane.showMessageDialog(
+                                    null,
+                                    "Server is running. Restart the server for the changes to take place.",
+                                    "Server is running",
+                                    JOptionPane.WARNING_MESSAGE
+                            );
+                        }
+                        //
+                        propertiesSettingsPanel.dispose();
+                    } else {
+                        propertiesSettingsPanel.dispose();
+                    }
+                } else {
+                    propertiesSettingsPanel.dispose();
+                }
+            }
+        });
         //
         propertiesSettingsPanel.revalidate();
         propertiesSettingsPanel.repaint();
         propertiesSettingsPanel.setVisible(true);
     }
 
-    private void showToolLogSeacher() {
-        JFrame toolLogSeacherPanel = new JFrame("Log Seacher");
-        toolLogSeacherPanel.setSize(520,320);
-        toolLogSeacherPanel.setLocationRelativeTo(null);
-        toolLogSeacherPanel.setResizable(false);
-        toolLogSeacherPanel.setIconImage(global.appIMG);
-        toolLogSeacherPanel.setLayout(null);
+    // =================
+    // Tool: Log Searcher
+    // =================
+    private void showToolLogSearcher() {
+        JFrame toolLogSearcherPanel = new JFrame("Log Seacher");
+        toolLogSearcherPanel.setSize(520,320);
+        toolLogSearcherPanel.setLocationRelativeTo(null);
+        toolLogSearcherPanel.setResizable(false);
+        toolLogSearcherPanel.setIconImage(global.appIMG);
+        toolLogSearcherPanel.setLayout(null);
         //
         JLabel inputFieldLabel = new JLabel("Filter:");
         inputFieldLabel.setBounds(5,5,200,30);
-        toolLogSeacherPanel.add(inputFieldLabel);
+        toolLogSearcherPanel.add(inputFieldLabel);
 
         JTextField inputField = new JTextField();
         inputField.setBounds(40,5,380,30);
         inputField.setToolTipText("Use ',' to distinct keywords. For example: hi, can you, please");
-        toolLogSeacherPanel.add(inputField);
+        toolLogSearcherPanel.add(inputField);
 
         // Logs result
         JScrollPane scrollPane = new JScrollPane();
@@ -598,7 +747,7 @@ public class serverGUI {
         JTextArea logs = new JTextArea();
         logs.setEditable(false);
         scrollPane.setViewportView(logs);
-        toolLogSeacherPanel.add(scrollPane);
+        toolLogSearcherPanel.add(scrollPane);
         //
         JButton startSearch = new JButton("Search");
         startSearch.setBounds(420,5,80,30);
@@ -629,7 +778,7 @@ public class serverGUI {
                    String fileName = file.getName().toLowerCase();
                    List<String> lines;
                    count = count++;
-                   toolLogSeacherPanel.setTitle("Log Searcher (" + count + "/" + totalFiles + ")");
+                   toolLogSearcherPanel.setTitle("Log Searcher (" + count + "/" + totalFiles + ")");
                    boolean isThereResult = false;
 
                    // ZIP
@@ -700,14 +849,14 @@ public class serverGUI {
                }
                 inputField.setEnabled(true);
                 startSearch.setEnabled(true);
-                toolLogSeacherPanel.setTitle("Log Searcher");
+                toolLogSearcherPanel.setTitle("Log Searcher");
             }).start();
         });
-        toolLogSeacherPanel.add(startSearch);
+        toolLogSearcherPanel.add(startSearch);
         //
-        toolLogSeacherPanel.revalidate();
-        toolLogSeacherPanel.repaint();
-        toolLogSeacherPanel.setVisible(true);
+        toolLogSearcherPanel.revalidate();
+        toolLogSearcherPanel.repaint();
+        toolLogSearcherPanel.setVisible(true);
     }
 
 

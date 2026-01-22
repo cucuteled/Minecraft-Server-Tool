@@ -1,13 +1,16 @@
 package tools;
 
 import data.NewServerForm;
+import globl.global;
 
 import java.io.*;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Dictionary;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.zip.GZIPInputStream;
 
 public class FileService {
 
@@ -29,10 +32,31 @@ public class FileService {
         } catch (Exception e) { return false; }
         return true;
     }
+    // Decompress and read binary file
+    public static byte[] readGzipBytes(File file) {
+        try (FileInputStream fis = new FileInputStream(file);
+             GZIPInputStream gis = new GZIPInputStream(fis);
+             ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+
+            byte[] buffer = new byte[4096];
+            int len;
+
+            while ((len = gis.read(buffer)) != -1) {
+                baos.write(buffer, 0, len);
+            }
+
+            return baos.toByteArray();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new byte[0];
+        }
+    }
+
 
     // Delete server
     public static Boolean deleteServer(String serverName) {
-        for (String server : globl.global.getMyServers()) {
+        for (String server : global.getMyServers()) {
             if (serverName.equals(server.split(";")[0])) {
                 String fileName = AppUtils.extractPath(server);
                 if ( deleteDirectory(new File(fileName)) ) {

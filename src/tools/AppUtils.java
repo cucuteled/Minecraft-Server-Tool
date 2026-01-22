@@ -6,6 +6,7 @@ import globl.Data;
 import javax.swing.*;
 import java.io.*;
 import java.net.*;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -248,6 +249,89 @@ public class AppUtils {
         }
         return length;
     }
+
+    public static String getDataFromNBT(File file, String dataName) {
+        byte[] data = FileService.readGzipBytes(file);
+
+        try {
+            byte[] nameBytes = dataName.getBytes(StandardCharsets.UTF_8);
+
+            for (int i = 0; i < data.length - nameBytes.length; i++) {
+
+                boolean match = true;
+                for (int j = 0; j < nameBytes.length; j++) {
+                    if (data[i + j] != nameBytes[j]) {
+                        match = false;
+                        break;
+                    }
+                }
+
+                if (!match) continue;
+
+                int nameStart = i;
+
+                int typeIdPos = nameStart - 3;
+                int typeId = data[typeIdPos] & 0xFF;
+
+                int valuePos = nameStart + nameBytes.length;
+
+                switch (typeId) {
+                    case 1: // TAG_Byte (Boolean)
+                        return Byte.toString(data[valuePos]);
+
+                    case 2: // TAG_Short
+                        return Short.toString((short)(
+                                ((data[valuePos] & 0xFF) << 8) |
+                                        (data[valuePos+1] & 0xFF)
+                        ));
+
+                    case 3: // TAG_Int
+                        return Integer.toString(
+                                ((data[valuePos] & 0xFF) << 24) |
+                                        ((data[valuePos+1] & 0xFF) << 16) |
+                                        ((data[valuePos+2] & 0xFF) << 8) |
+                                        (data[valuePos+3] & 0xFF)
+                        );
+
+                    case 4: // TAG_Long
+                        return Long.toString(
+                                ((long)(data[valuePos] & 0xFF) << 56) |
+                                        ((long)(data[valuePos+1] & 0xFF) << 48) |
+                                        ((long)(data[valuePos+2] & 0xFF) << 40) |
+                                        ((long)(data[valuePos+3] & 0xFF) << 32) |
+                                        ((long)(data[valuePos+4] & 0xFF) << 24) |
+                                        ((long)(data[valuePos+5] & 0xFF) << 16) |
+                                        ((long)(data[valuePos+6] & 0xFF) << 8) |
+                                        ((long)(data[valuePos+7] & 0xFF))
+                        );
+
+                    case 5: // TAG_Float
+                        int floatBits =
+                                ((data[valuePos] & 0xFF) << 24) |
+                                        ((data[valuePos+1] & 0xFF) << 16) |
+                                        ((data[valuePos+2] & 0xFF) << 8) |
+                                        (data[valuePos+3] & 0xFF);
+                        return Float.toString(Float.intBitsToFloat(floatBits));
+
+                    case 6: // TAG_Double
+                        long doubleBits =
+                                ((long)(data[valuePos] & 0xFF) << 56) |
+                                        ((long)(data[valuePos+1] & 0xFF) << 48) |
+                                        ((long)(data[valuePos+2] & 0xFF) << 40) |
+                                        ((long)(data[valuePos+3] & 0xFF) << 32) |
+                                        ((long)(data[valuePos+4] & 0xFF) << 24) |
+                                        ((long)(data[valuePos+5] & 0xFF) << 16) |
+                                        ((long)(data[valuePos+6] & 0xFF) << 8) |
+                                        ((long)(data[valuePos+7] & 0xFF));
+                        return Double.toString(Double.longBitsToDouble(doubleBits));
+                }
+            }
+
+        } catch (Exception ignored) { }
+
+        return "unknown";
+    }
+
 
 
 }

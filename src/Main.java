@@ -1,5 +1,6 @@
 import globl.Data;
 
+
 public class Main {
 
     public static window AppWindow;

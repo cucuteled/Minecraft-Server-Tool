@@ -13,6 +13,7 @@ public class global {
     public static final String minecraftPath = System.getenv("APPDATA") + "\\.minecraft";
     public static final String loadingIMGPath =
             new java.io.File("src/data/loading.gif").toURI().toString();
+    public static final String emarkIMGPath = new java.io.File("src/data/emark.png").toURI().toString();
     public static final String openPortGuidePath = new File("src/data/openingPortGuide.pdf").getAbsolutePath();
 
 

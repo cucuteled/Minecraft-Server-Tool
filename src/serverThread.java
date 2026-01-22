@@ -27,13 +27,14 @@ public class serverThread extends Thread {
             process = pb.start();
             Main.data.setServerRunning(true);
 
-            long pid = process.pid();
-
-            ServerMonitor monitor =
-                    new ServerMonitor(pid, Main.mainWindow.usageStatusLabel, this.process);
-
-            Thread monitorThread = new Thread(monitor);
-            monitorThread.start();
+            // currently only windows supported
+            if (System.getProperty("os.name").startsWith("windows")) {
+                long pid = process.pid();
+                ServerMonitor monitor =
+                        new ServerMonitor(pid, Main.mainWindow.usageStatusLabel, this.process);
+                Thread monitorThread = new Thread(monitor);
+                monitorThread.start();
+            }
 
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(process.getInputStream()))) {
