@@ -250,9 +250,7 @@ public class AppUtils {
         return length;
     }
 
-    public static String getDataFromNBT(File file, String dataName) {
-        byte[] data = FileService.readGzipBytes(file);
-
+    public static String getDataFromNBT(byte[] data, String dataName) {
         try {
             byte[] nameBytes = dataName.getBytes(StandardCharsets.UTF_8);
 
@@ -272,6 +270,7 @@ public class AppUtils {
 
                 int typeIdPos = nameStart - 3;
                 int typeId = data[typeIdPos] & 0xFF;
+                System.out.println(dataName + ": " + typeId);
 
                 int valuePos = nameStart + nameBytes.length;
 
@@ -324,13 +323,145 @@ public class AppUtils {
                                         ((long)(data[valuePos+6] & 0xFF) << 8) |
                                         ((long)(data[valuePos+7] & 0xFF));
                         return Double.toString(Double.longBitsToDouble(doubleBits));
+                    case 8:
+                        int stringLength =
+                                ((data[valuePos] & 0xFF) << 8) |
+                                        (data[valuePos+1] & 0xFF);
+                        valuePos += 2;
+                        return new String(data, valuePos, stringLength, StandardCharsets.UTF_8);
+                    case 11: // TAG_Int_Array
+                        int arrayLength =
+                                ((data[valuePos] & 0xFF) << 24) |
+                                        ((data[valuePos+1] & 0xFF) << 16) |
+                                        ((data[valuePos+2] & 0xFF) << 8) |
+                                        (data[valuePos+3] & 0xFF);
+                        int pos = valuePos + 4;
+
+                        StringBuilder sb = new StringBuilder();
+                        for (int k = 0; k < arrayLength; k++) {
+                            int v =
+                                    ((data[pos] & 0xFF) << 24) |
+                                            ((data[pos+1] & 0xFF) << 16) |
+                                            ((data[pos+2] & 0xFF) << 8) |
+                                            (data[pos+3] & 0xFF);
+
+                            sb.append(v).append(",");
+                            pos += 4;
+                        }
+                        return sb.toString();
                 }
             }
 
-        } catch (Exception ignored) { }
+        } catch (Exception ignored) {}
 
         return "unknown";
     }
+
+    public static byte[] getCompoundFromNBT(byte[] rawData, String compoundName) {
+        try {
+            byte[] nameBytes = compoundName.getBytes(StandardCharsets.UTF_8);
+
+            for (int i = 0; i < rawData.length - nameBytes.length; i++) {
+                boolean match = true;
+                for (int j = 0; j < nameBytes.length; j++) {
+                    if (rawData[i + j] != nameBytes[j]) {
+                        match = false;
+                        break;
+                    }
+                }
+                if (!match) continue;
+
+                int compoundNamePos = i;
+                int typeIdPos = compoundNamePos - 3;
+                int typeId = rawData[typeIdPos] & 0xFF;
+                if (typeId != 0x0A) {
+                    // not compound
+                    continue;
+                }
+
+                int pos = compoundNamePos + nameBytes.length;
+
+                try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                    // Read until TAG_End (0x00)
+                    while (pos < rawData.length) {
+                        int tagType = rawData[pos] & 0xFF;
+                        baos.write(tagType);
+                        pos++;
+
+                        if (tagType == 0x00) {
+                            break;
+                        }
+
+                        int nameLength =
+                                ((rawData[pos] & 0xFF) << 8) |
+                                        (rawData[pos+1] & 0xFF);
+
+                        // 2 is the bytes of nameLength; nameLength is the length of the tag Name
+                        int dataLength = 2 + nameLength;
+                        int valuePos = dataLength + pos;
+                        switch (tagType) {
+                            case 1: dataLength += 1; break;
+                            case 2: dataLength += 2; break;
+                            case 3: dataLength += 4; break;
+                            case 4: dataLength += 8; break;
+                            case 5: dataLength += 4; break;
+                            case 6: dataLength += 8; break;
+                            // Above is the following bytes of the tag type
+
+                            case 7: { // TAG_Byte_Array
+                                int len =
+                                        ((rawData[valuePos] & 0xFF) << 24) |
+                                                ((rawData[valuePos+1] & 0xFF) << 16) |
+                                                ((rawData[valuePos+2] & 0xFF) << 8) |
+                                                (rawData[valuePos+3] & 0xFF);
+
+                                dataLength += 4 + len;
+                                break;
+                            }
+                            case 8: { // TAG_String
+                                int len =
+                                        ((rawData[valuePos] & 0xFF) << 8) |
+                                                (rawData[valuePos+1] & 0xFF);
+
+                                dataLength += 2 + len;
+                                break;
+                            }
+                            case 9: { // TAG_List
+                                // tag list currently not supported
+                                return new byte[0];
+                            }
+                            case 10:
+                                // compound in compound currently not supported
+                                return new byte[0];
+                            case 11: { // TAG_Int_Array
+                                int len =
+                                        ((rawData[valuePos] & 0xFF) << 24) |
+                                                ((rawData[valuePos+1] & 0xFF) << 16) |
+                                                ((rawData[valuePos+2] & 0xFF) << 8) |
+                                                (rawData[valuePos+3] & 0xFF);
+                                dataLength += 4 + len * 4;
+                                break;
+                            }
+                            case 12: { // TAG_Long_Array
+                                int len =
+                                        ((rawData[valuePos] & 0xFF) << 24) |
+                                                ((rawData[valuePos+1] & 0xFF) << 16) |
+                                                ((rawData[valuePos+2] & 0xFF) << 8) |
+                                                (rawData[valuePos+3] & 0xFF);
+                                dataLength += 4 + len * 8;
+                                break;
+                            }
+                        }
+                        baos.write(rawData, pos, dataLength);
+                        pos += dataLength;
+                    }
+                    return baos.toByteArray();
+                }
+            }
+        } catch (Exception ignored) {}
+        return new byte[0];
+    }
+
 
 
 

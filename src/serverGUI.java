@@ -6,6 +6,8 @@ import tools.IpFieldValidator;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -74,15 +76,13 @@ public class serverGUI {
 
                      String line;
                      while ((line = reader.readLine()) != null) {
-                        //System.out.println("[SERVER] " + line);
+                         //
                      }
-                } catch (Exception e) {
-                    //System.out.println(e);
+                } catch (Exception ignored) {
                 }
                 int exitCode = process.waitFor();
                 //
-            } catch (Exception e) {
-                //System.out.println(e);
+            } catch (Exception ignored) {
             }
             label.setBounds(110,-35,340,120);
             label.setText("<html><h1>Success!</h1></html>");
@@ -364,6 +364,26 @@ public class serverGUI {
         totalSizeLabel.setBounds(820 - fm.stringWidth(totalSizeLabel.getText()) - 10, 430,200,30);
     }
 
+    public void updateOnlinePlayers(List<String> players) {
+        onlinePlayersLabel.setText("""
+        <html><span style="font-size:8px;color:gray;font-style:italic;">Online players: %s</span></html>
+        """.formatted(players.size()));
+        StringBuilder playerList = new StringBuilder();
+        for (String player : players) {
+            playerList.append(player).append("<br>");
+        }
+        onlinePlayersLabel.setToolTipText("""
+                <html>
+                %s
+                </html>
+                """.formatted(playerList.toString()));
+        managePlayers.setVisible(onlinePlayersLabel.isVisible() && !players.isEmpty());
+    }
+
+    // Server info
+    private JLabel onlinePlayersLabel;
+    private JLabel managePlayers;
+
     private void showMainWindow() {
         frame.getContentPane().removeAll();
         frame.setSize(720,520);
@@ -377,6 +397,26 @@ public class serverGUI {
         usageStatusLabel = new JLabel("");
         usageStatusLabel.setBounds(405,430,200,30);
         frame.add(usageStatusLabel);
+
+        onlinePlayersLabel = new JLabel("""
+        <html><span style="font-size:8px;color:gray;font-style:italic;">Online players: 0</span></html>
+        """);
+        onlinePlayersLabel.setVisible(false);
+        onlinePlayersLabel.setBounds(415, 80, 100, 30);
+        frame.add(onlinePlayersLabel);
+
+        managePlayers = new JLabel("<html><span style=\"font-size:8px;\"><a href=\"#\" style=\"font-style:italic;\">(Manage players)</a></span></html>");
+        managePlayers.setBounds(530,80,100,30);
+        managePlayers.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        managePlayers.setVisible(false);
+        managePlayers.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                super.mouseClicked(e);
+                showManagePlayersPanel();
+            }
+        });
+        frame.add(managePlayers);
         // --------------
         // Menu Bar
         // --------------
@@ -513,7 +553,6 @@ public class serverGUI {
         });
         frame.add(launchButton);
         //
-
         frame.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
@@ -528,6 +567,7 @@ public class serverGUI {
                     if (result == JOptionPane.YES_OPTION) {
                         server.sendCommand("stop");
                         frame.dispose();
+                        System.exit(0);
                     }
                 }
             }
@@ -538,6 +578,73 @@ public class serverGUI {
         frame.revalidate();
     }
 
+    private void showManagePlayersPanel() {
+        JFrame managePlayersPanel = new JFrame("Manage Players");
+        managePlayersPanel.setSize(220,300);
+        managePlayersPanel.setLocationRelativeTo(null);
+        managePlayersPanel.setResizable(false);
+        managePlayersPanel.setIconImage(global.appIMG);
+        managePlayersPanel.setLayout(new BorderLayout());
+        // Fill with online players
+        JScrollPane scrollPane = new JScrollPane();
+        scrollPane.setBounds(0,0,180,250);
+        scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
+        scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+
+        JPanel playersPanel = new JPanel();
+        playersPanel.setLayout(new BoxLayout(playersPanel, BoxLayout.X_AXIS));
+
+        scrollPane.setViewportView(playersPanel);
+        managePlayersPanel.add(scrollPane);
+        if (Main.data.isServerRunning()) {
+            for (String player : server.getOnlinePlayers()) {
+                JPanel playerPanel = new JPanel();
+                playersPanel.setLayout(new BoxLayout(playersPanel, BoxLayout.Y_AXIS));
+                //playerPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+
+
+                JLabel nameLabel = new JLabel(player);
+
+                JPanel actionsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+
+                JLabel kickPlayer = new JLabel("<html><a href=\"#\">kick</a>  </html>");
+                kickPlayer.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                kickPlayer.addMouseListener(new MouseAdapter() {
+                    @Override
+                    public void mouseClicked(MouseEvent e) {
+                        super.mouseClicked(e);
+                        server.sendCommand("kick " + player);
+                        //todo: eltüteni a listából
+                    }
+                });
+                JLabel banPlayer = new JLabel("<html><a href=\"#\">ban</a></html>");
+                banPlayer.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                banPlayer.addMouseListener(new MouseAdapter() {
+                    @Override
+                    public void mouseClicked(MouseEvent e) {
+                        super.mouseClicked(e);
+                        server.sendCommand("ban " + player);
+                        //todo: eltüteni a listából
+                    }
+                });
+
+                actionsPanel.add(kickPlayer);
+                actionsPanel.add(banPlayer);
+
+                playerPanel.add(nameLabel, BorderLayout.WEST);
+                playerPanel.add(actionsPanel, BorderLayout.EAST);
+                //
+                playersPanel.add(playerPanel);
+            }
+            playersPanel.revalidate();
+            playersPanel.repaint();
+        }
+        //
+        managePlayersPanel.revalidate();
+        managePlayersPanel.repaint();
+        managePlayersPanel.setVisible(true);
+    }
+
     // ===========================================
     // Callable from outside CLASS (SERVERTHREAD)
     // ===========================================
@@ -545,6 +652,7 @@ public class serverGUI {
         launchButton.setEnabled(true);
         launchButton.setText("Stop");
         launchButton.setBackground(new Color(187, 34, 34));
+        onlinePlayersLabel.setVisible(true);
         //
         consoleInputField.setEnabled(true);
         consoleInputSend.setEnabled(true);
@@ -555,6 +663,9 @@ public class serverGUI {
         launchButton.setEnabled(true);
         launchButton.setText("Start");
         launchButton.setBackground(UIManager.getColor("Button.background"));
+        //
+        onlinePlayersLabel.setVisible(false);
+        refreshMainWindowAffectedByProperties();
         //
         consoleInputField.setEnabled(false);
         consoleInputSend.setEnabled(false);

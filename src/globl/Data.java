@@ -16,7 +16,7 @@ public class Data {
     private String myExternalIp = "";
     // Properties
     private final Map<String, String> propertiesMap = new LinkedHashMap<>();
-
+    //
 
     private boolean isServerRunning = false;
 
