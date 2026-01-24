@@ -7,8 +7,8 @@ import java.io.File;
 class Test {
 
     public static void main(String[] args) {
-        //testAppUtils();
-        testNBTParsingPlayer();
+        testAppUtils();
+        //testNBTParsingPlayer();
     }
 
     public static void testAppUtils() {
@@ -26,7 +26,13 @@ class Test {
 //        float dayTime = Float.parseFloat(AppUtils.getDataFromNBT(new File("G:\\My Servers\\Krumpli\\world\\level.dat"),"DayTime"));
 //        dayTime = dayTime / 24000;
 //        System.out.println((int)dayTime + "day");
-    }
+        File player = new File("G:\\\\My Servers\\\\Krumpli\\\\world\\\\level.dat");
+        byte[] data = FileService.readGzipBytes(player);
+        byte[] gamerules = AppUtils.getCompoundFromNBT(data, "game_rules");
+
+        String keepinv = AppUtils.getDataFromNBT(gamerules,"minecraft:keep_inventory");
+        System.out.println(keepinv);
+    } //todo: server settings motd && picture || motd settings & world generation settings || game_rule settings || update server file_settings || whitelist OP BANNED players editor
 
     public static void testNBTParsingPlayer() {
         File player = new File("G:\\My Servers\\Krumpli\\world\\playerdata\\testPlayer.dat");

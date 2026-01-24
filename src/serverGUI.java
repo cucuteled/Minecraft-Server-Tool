@@ -6,8 +6,6 @@ import tools.IpFieldValidator;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -380,6 +378,40 @@ public class serverGUI {
         managePlayers.setVisible(onlinePlayersLabel.isVisible() && !players.isEmpty());
     }
 
+    private JButton peacefulButton;
+    private JButton easyButton;
+    private JButton normalButton;
+    private JButton hardButton;
+
+    public void setDifficultyGUI(String newDifficulty, boolean save) {
+        peacefulButton.setEnabled(true);
+        easyButton.setEnabled(true);
+        normalButton.setEnabled(true);
+        hardButton.setEnabled(true);
+        String diff = newDifficulty.toLowerCase().replaceAll(" ", "");
+        switch (diff) {
+            case "peaceful":
+                peacefulButton.setEnabled(false);
+                break;
+            case "easy":
+                easyButton.setEnabled(false);
+                break;
+            case "normal":
+                normalButton.setEnabled(false);
+                break;
+            case "hard":
+                hardButton.setEnabled(false);
+                break;
+        }
+        if (save) {
+            Main.data.setProperty("difficulty", diff);
+            AppUtils.saveServerData(Main.data);
+            if (Main.data.isServerRunning()) {
+                this.server.sendCommand("difficulty " + diff);
+            }
+        }
+    }
+
     // Server info
     private JLabel onlinePlayersLabel;
     private JLabel managePlayers;
@@ -417,6 +449,88 @@ public class serverGUI {
             }
         });
         frame.add(managePlayers);
+        // Simple settings
+        JPanel simpleSettings = new JPanel();
+        //simpleSettings.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+        simpleSettings.setBounds(415,110,280,312);//todo: simple settings
+        simpleSettings.setLayout(new BoxLayout(simpleSettings, BoxLayout.Y_AXIS));
+
+        // Difficulty
+        JPanel difficultLabelPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        difficultLabelPanel.setMaximumSize(new Dimension(100,20));
+        difficultLabelPanel.add(new JLabel("Difficulty:"));
+        simpleSettings.add(difficultLabelPanel);
+
+        JPanel difficultyPanel = new JPanel();
+        difficultyPanel.setMaximumSize(new Dimension(300,40));
+        difficultyPanel.setLayout(new FlowLayout(FlowLayout.CENTER,0,1));
+        peacefulButton = new JButton("<html><span style=\"font-size:8px\">Peaceful</span></html>");
+        easyButton = new JButton("<html><span style=\"font-size:8px\">Easy</span></html>");
+        normalButton = new JButton("<html><span style=\"font-size:8px\">Normal</span></html>");
+        hardButton = new JButton("<html><span style=\"font-size:8px\">Hard</span></html>"); //todo: change (new diff, true)
+        difficultyPanel.add(peacefulButton);
+        difficultyPanel.add(easyButton);
+        difficultyPanel.add(normalButton);
+        difficultyPanel.add(hardButton);
+
+        simpleSettings.add(difficultyPanel);
+        setDifficultyGUI(Main.data.getProperty("difficulty"), false);
+
+        JPanel otherSettingsPanel = new JPanel();
+        otherSettingsPanel.setMaximumSize(new Dimension(300,140));
+        otherSettingsPanel.setLayout(new FlowLayout(FlowLayout.CENTER,0,5));
+        // World settings
+        JButton worldSettings = new JButton("World settings");
+        worldSettings.setPreferredSize(new Dimension(260,30));
+        // Gamerules
+        JButton gamerulesSettings = new JButton("Gamerule settings");
+        gamerulesSettings.setPreferredSize(new Dimension(260,30));
+        // Server Settings
+        JButton serverSettings = new JButton("Server settings");
+        serverSettings.setPreferredSize(new Dimension(260,30)); // todo: make it work
+        // Permission & Whitelist
+        JButton permissionSettings = new JButton("Permissions & Whitelist");
+        permissionSettings.setPreferredSize(new Dimension(260,30));
+        //
+        otherSettingsPanel.add(worldSettings);
+        otherSettingsPanel.add(gamerulesSettings);
+        otherSettingsPanel.add(serverSettings);
+        otherSettingsPanel.add(permissionSettings);
+        //
+        simpleSettings.add(otherSettingsPanel);
+
+        // Server version and view distance settings
+        JPanel viewDistanceSettingsPanel = new JPanel();
+        viewDistanceSettingsPanel.setMaximumSize(new Dimension(300,100));
+        viewDistanceSettingsPanel.setLayout(new FlowLayout(FlowLayout.CENTER,0,6));
+
+        JLabel serverVersionInfo = new JLabel("""
+                <html><span style="font-size:8px;font-style:italic;">
+                Server version: %s
+                </span></html>
+                """.formatted(Main.data.getCurrentVersion()));
+        viewDistanceSettingsPanel.add(serverVersionInfo);
+
+        JLabel viewDistanceLabel = new JLabel("View-distance:");
+        viewDistanceLabel.setPreferredSize(new Dimension(270,20));
+        viewDistanceSettingsPanel.add(viewDistanceLabel);
+
+        int defaultViewDistance = 10;
+        try {
+            defaultViewDistance = Integer.parseInt(Main.data.getProperty("view-distance"));
+        } catch (Exception e) {defaultViewDistance=10;}
+
+        JSlider viewDistanceSlider = new JSlider(JSlider.HORIZONTAL, 3, 32, defaultViewDistance);
+        viewDistanceSlider.setMajorTickSpacing(3);
+        viewDistanceSlider.setMinorTickSpacing(1);
+        viewDistanceSlider.setPaintTicks(true);
+        viewDistanceSlider.setPaintLabels(true);
+        viewDistanceSlider.setPreferredSize(new Dimension(280, 40));
+        viewDistanceSettingsPanel.add(viewDistanceSlider);
+
+        simpleSettings.add(viewDistanceSettingsPanel);
+
+        frame.add(simpleSettings);
         // --------------
         // Menu Bar
         // --------------
@@ -432,6 +546,13 @@ public class serverGUI {
             showPropertiesMenuSettings();
         });
         settingsMenu.add(propertiesSettingsMenu);
+
+        JMenuItem backupMenu = new JMenuItem("Backup");
+        backupMenu.addActionListener(a -> {
+            //todo: backup
+        });
+        settingsMenu.add(backupMenu);
+
         // About
         settingsMenu.addSeparator();
         JMenuItem aboutInfo = new JMenuItem("About");
@@ -473,6 +594,12 @@ public class serverGUI {
             //todo: webserver
         });
         toolsMenu.add(webServer);
+
+        JMenuItem playerInfo = new JMenuItem("Players info");
+        playerInfo.addActionListener(a -> {
+            //todo: read nbts of players from "world/playerdata"
+        });
+        toolsMenu.add(playerInfo);
 
         menuBar.add(toolsMenu);
         // -------------
@@ -578,34 +705,20 @@ public class serverGUI {
         frame.revalidate();
     }
 
-    private void showManagePlayersPanel() {
-        JFrame managePlayersPanel = new JFrame("Manage Players");
-        managePlayersPanel.setSize(220,300);
-        managePlayersPanel.setLocationRelativeTo(null);
-        managePlayersPanel.setResizable(false);
-        managePlayersPanel.setIconImage(global.appIMG);
-        managePlayersPanel.setLayout(new BorderLayout());
-        // Fill with online players
-        JScrollPane scrollPane = new JScrollPane();
-        scrollPane.setBounds(0,0,180,250);
-        scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
-        scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+    JPanel playersPanel;
 
-        JPanel playersPanel = new JPanel();
-        playersPanel.setLayout(new BoxLayout(playersPanel, BoxLayout.X_AXIS));
-
-        scrollPane.setViewportView(playersPanel);
-        managePlayersPanel.add(scrollPane);
-        if (Main.data.isServerRunning()) {
+    public void updatePlayerListInPlayerPanel() {
+        if (Main.data.isServerRunning() && playersPanel != null) {
+            playersPanel.removeAll();
             for (String player : server.getOnlinePlayers()) {
                 JPanel playerPanel = new JPanel();
-                playersPanel.setLayout(new BoxLayout(playersPanel, BoxLayout.Y_AXIS));
-                //playerPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
-
+                playerPanel.setLayout(new BorderLayout());
+                playerPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
 
                 JLabel nameLabel = new JLabel(player);
 
                 JPanel actionsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+                JPanel namePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
 
                 JLabel kickPlayer = new JLabel("<html><a href=\"#\">kick</a>  </html>");
                 kickPlayer.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -614,7 +727,6 @@ public class serverGUI {
                     public void mouseClicked(MouseEvent e) {
                         super.mouseClicked(e);
                         server.sendCommand("kick " + player);
-                        //todo: eltüteni a listából
                     }
                 });
                 JLabel banPlayer = new JLabel("<html><a href=\"#\">ban</a></html>");
@@ -624,14 +736,15 @@ public class serverGUI {
                     public void mouseClicked(MouseEvent e) {
                         super.mouseClicked(e);
                         server.sendCommand("ban " + player);
-                        //todo: eltüteni a listából
                     }
                 });
 
                 actionsPanel.add(kickPlayer);
                 actionsPanel.add(banPlayer);
 
-                playerPanel.add(nameLabel, BorderLayout.WEST);
+                namePanel.add(nameLabel);
+
+                playerPanel.add(namePanel, BorderLayout.WEST);
                 playerPanel.add(actionsPanel, BorderLayout.EAST);
                 //
                 playersPanel.add(playerPanel);
@@ -639,6 +752,28 @@ public class serverGUI {
             playersPanel.revalidate();
             playersPanel.repaint();
         }
+    }
+
+    private void showManagePlayersPanel() {
+        JFrame managePlayersPanel = new JFrame("Manage Players");
+        managePlayersPanel.setSize(240,300);
+        managePlayersPanel.setLocationRelativeTo(null);
+        managePlayersPanel.setResizable(false);
+        managePlayersPanel.setIconImage(global.appIMG);
+        managePlayersPanel.setLayout(new BorderLayout());
+
+        JScrollPane scrollPane = new JScrollPane();
+        scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
+        scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+
+        playersPanel = new JPanel();
+        playersPanel.setLayout(new BoxLayout(playersPanel, BoxLayout.Y_AXIS));
+
+        scrollPane.setViewportView(playersPanel);
+        managePlayersPanel.add(scrollPane);
+
+        // Fill with online players
+        updatePlayerListInPlayerPanel();
         //
         managePlayersPanel.revalidate();
         managePlayersPanel.repaint();
@@ -972,5 +1107,3 @@ public class serverGUI {
 
 
 }
-
-

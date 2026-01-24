@@ -14,10 +14,10 @@ public class Data {
     // Base server Data
     private String workingPath;
     private String myExternalIp = "";
+    private String currentVersion = "";
     // Properties
     private final Map<String, String> propertiesMap = new LinkedHashMap<>();
     //
-
     private boolean isServerRunning = false;
 
     public Data(String path) {
@@ -32,6 +32,10 @@ public class Data {
     public String getMyExternalIp() {
         return myExternalIp;
     }
+
+    public String getCurrentVersion() { return currentVersion; }
+
+    public void setCurrentVersion(String currentVersion) { this.currentVersion = currentVersion; }
 
     public void setMyExternalIp(String myExternalIp) {
         this.myExternalIp = myExternalIp;

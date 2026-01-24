@@ -22,6 +22,8 @@ public class AppUtils {
         return normalizePath(path.split(";")[1]);
     }
 
+    public static String extractVersion(String path) throws Exception { return normalizePath(path.split(";")[2]); }
+
     public static String readURL(String webURL) {
         StringBuilder returnData = new StringBuilder();
         try {

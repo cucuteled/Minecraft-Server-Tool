@@ -30,6 +30,8 @@ public class serverThread extends Thread {
         try {
             process = pb.start();
             Main.data.setServerRunning(true);
+            this.onlinePlayers.clear();
+            Main.mainWindow.updateOnlinePlayers(this.onlinePlayers);
 
             // currently only windows supported
             if (System.getProperty("os.name").toLowerCase().startsWith("windows")) {
@@ -46,8 +48,17 @@ public class serverThread extends Thread {
                 String line;
                 while ((line = reader.readLine()) != null) {
                     consoleWindow.append(line + "\n");
+                    // check content
                     if (line.contains(": Done (")) Main.mainWindow.GUIstateServerStarted();
-                    if (line.contains("joined") || line.contains("left")) { // "<" check if it's not written by player
+//                    List<String> parts = new ArrayList<>(List.of(line.split(" ")));
+//                    System.out.println(parts);
+//                    int index = parts.indexOf("joined");
+//                    int index2 = parts.indexOf("left");
+//                    if (index != -1) onlinePlayers.add(parts.get(index-1));
+//                    if (index2 != -1) onlinePlayers.remove(parts.get(index2-1));
+//                    if (index != -1 || index2 != -1) Main.mainWindow.updateOnlinePlayers(this.onlinePlayers);
+
+                    if (line.contains("joined") || line.contains("left")) { // check if it's not written by player or other
                         String[] parts = line.split(" ");
                         if (parts[2].equalsIgnoreCase("thread/INFO]:")) {
                             if (parts[4].equalsIgnoreCase("joined")) {
@@ -57,11 +68,13 @@ public class serverThread extends Thread {
                             }
                             // call update on GUI:
                             Main.mainWindow.updateOnlinePlayers(this.onlinePlayers);
+                            Main.mainWindow.updatePlayerListInPlayerPanel();
                         }
                     }
                 }
             } catch (Exception e) {
                 consoleWindow.append("\n--ERROR---------------------\\x1B[31m \n" + e.getMessage() + "\n \\x1B[0m----------------------------\n");
+                process.destroy();
             }
             int exitCode = process.waitFor();
             //

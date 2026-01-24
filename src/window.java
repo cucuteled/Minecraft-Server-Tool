@@ -353,6 +353,9 @@ public class window {
 
     private void startServer(String server) {
         Main.data = new Data(AppUtils.extractPath(server));
+        try {
+            Main.data.setCurrentVersion(AppUtils.extractVersion(server));
+        } catch (Exception ignored) {}
         openServerGUI();
     }
 
