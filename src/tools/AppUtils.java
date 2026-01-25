@@ -464,6 +464,10 @@ public class AppUtils {
         return new byte[0];
     }
 
+    public static void saveServerMotdAndPicture(String motd, String Picture) {
+        boolean isNewPicture = Picture.isBlank();
+        // todo save
+    }
 
 
 

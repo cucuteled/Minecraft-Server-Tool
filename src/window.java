@@ -542,12 +542,13 @@ public class window {
             }
         });
         // Next
-        JButton nextButton = new JButton("Select Version");
+        nextButton = new JButton("Select Version");
         nextButton.setBounds(40,160,240,30);
         nextButton.addActionListener(e -> {
             newserverform.setVersion(inputVersion.getSelectedItem().toString());
             // Download server and go to setup
             downloadServerFile(versions.get(newserverform.getVersion()));
+            nextButton.setEnabled(false);
         });
         inputVersion.addActionListener(e -> {
             nextButton.setVisible(inputVersion.getSelectedItem() != null);
@@ -569,18 +570,32 @@ public class window {
         frame.repaint();
         frame.revalidate();
     }
+    private JButton nextButton;
 
     private void downloadServerFile(String sha1) {
-        if (AppUtils.downloadServerFile(sha1, newserverform)) {
-            openGUIwithSave();
-        } else {
-            JOptionPane.showMessageDialog(
-                    null,
-                    "An error occurred while trying to download the file from the server.",
-                    "Error while downloading",
-                    JOptionPane.INFORMATION_MESSAGE
-            );
-        }
+        JDialog dialog = new JOptionPane(
+                "Please wait... downloading server file!",
+                JOptionPane.INFORMATION_MESSAGE
+        ).createDialog("Info");
+
+        dialog.setModal(false);
+        dialog.setVisible(true);
+
+        new Thread(() -> {
+            nextButton.setText("Wait..");
+            if (AppUtils.downloadServerFile(sha1, newserverform)) {
+                openGUIwithSave();
+            } else {
+                JOptionPane.showMessageDialog(
+                        null,
+                        "An error occurred while trying to download the file from the server.",
+                        "Error while downloading",
+                        JOptionPane.INFORMATION_MESSAGE
+                );
+                nextButton.setText("Select Version");
+                nextButton.setEnabled(true);
+            }
+        }).start();
     }
 
     private void openGUIwithSave() {

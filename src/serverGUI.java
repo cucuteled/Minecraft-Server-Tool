@@ -2,6 +2,7 @@ import globl.global;
 import tools.AppUtils;
 import tools.FileService;
 import tools.IpFieldValidator;
+import tools.MotdFormatter;
 
 import javax.swing.*;
 import java.awt.*;
@@ -10,9 +11,11 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipFile;
 import javax.swing.JPanel;
+import javax.swing.filechooser.FileNameExtensionFilter;
 
 
 public class serverGUI {
@@ -416,6 +419,8 @@ public class serverGUI {
     private JLabel onlinePlayersLabel;
     private JLabel managePlayers;
 
+    private JSlider viewDistanceSlider;
+
     private void showMainWindow() {
         frame.getContentPane().removeAll();
         frame.setSize(720,520);
@@ -452,7 +457,7 @@ public class serverGUI {
         // Simple settings
         JPanel simpleSettings = new JPanel();
         //simpleSettings.setBorder(BorderFactory.createLineBorder(Color.BLACK));
-        simpleSettings.setBounds(415,110,280,312);//todo: simple settings
+        simpleSettings.setBounds(415,110,280,312);
         simpleSettings.setLayout(new BoxLayout(simpleSettings, BoxLayout.Y_AXIS));
 
         // Difficulty
@@ -465,9 +470,21 @@ public class serverGUI {
         difficultyPanel.setMaximumSize(new Dimension(300,40));
         difficultyPanel.setLayout(new FlowLayout(FlowLayout.CENTER,0,1));
         peacefulButton = new JButton("<html><span style=\"font-size:8px\">Peaceful</span></html>");
+        peacefulButton.addActionListener(a -> {
+            setDifficultyGUI("peaceful", true);
+        });
         easyButton = new JButton("<html><span style=\"font-size:8px\">Easy</span></html>");
+        easyButton.addActionListener(a -> {
+            setDifficultyGUI("easy", true);
+        });
         normalButton = new JButton("<html><span style=\"font-size:8px\">Normal</span></html>");
-        hardButton = new JButton("<html><span style=\"font-size:8px\">Hard</span></html>"); //todo: change (new diff, true)
+        normalButton.addActionListener(a -> {
+            setDifficultyGUI("normal", true);
+        });
+        hardButton = new JButton("<html><span style=\"font-size:8px\">Hard</span></html>");
+        hardButton.addActionListener(a -> {
+            setDifficultyGUI("hard", true);
+        });
         difficultyPanel.add(peacefulButton);
         difficultyPanel.add(easyButton);
         difficultyPanel.add(normalButton);
@@ -482,15 +499,27 @@ public class serverGUI {
         // World settings
         JButton worldSettings = new JButton("World settings");
         worldSettings.setPreferredSize(new Dimension(260,30));
+        worldSettings.addActionListener(a -> {
+            showWorldSettings();
+        });
         // Gamerules
-        JButton gamerulesSettings = new JButton("Gamerule settings");
+        JButton gamerulesSettings = new JButton("Gamerules");
         gamerulesSettings.setPreferredSize(new Dimension(260,30));
+        gamerulesSettings.addActionListener(a -> {
+            showGameruleSettings();
+        });
         // Server Settings
         JButton serverSettings = new JButton("Server settings");
-        serverSettings.setPreferredSize(new Dimension(260,30)); // todo: make it work
+        serverSettings.setPreferredSize(new Dimension(260,30));
+        serverSettings.addActionListener(a -> {
+            showServerSettings();
+        });
         // Permission & Whitelist
         JButton permissionSettings = new JButton("Permissions & Whitelist");
         permissionSettings.setPreferredSize(new Dimension(260,30));
+        permissionSettings.addActionListener(a -> {
+            showPermissionSettings();
+        });
         //
         otherSettingsPanel.add(worldSettings);
         otherSettingsPanel.add(gamerulesSettings);
@@ -520,7 +549,7 @@ public class serverGUI {
             defaultViewDistance = Integer.parseInt(Main.data.getProperty("view-distance"));
         } catch (Exception e) {defaultViewDistance=10;}
 
-        JSlider viewDistanceSlider = new JSlider(JSlider.HORIZONTAL, 3, 32, defaultViewDistance);
+        viewDistanceSlider = new JSlider(JSlider.HORIZONTAL, 3, 32, defaultViewDistance);
         viewDistanceSlider.setMajorTickSpacing(3);
         viewDistanceSlider.setMinorTickSpacing(1);
         viewDistanceSlider.setPaintTicks(true);
@@ -541,7 +570,7 @@ public class serverGUI {
         ipSettingsItem.addActionListener(e -> showIPSettingsPanel());
         settingsMenu.add(ipSettingsItem);
 
-        JMenuItem propertiesSettingsMenu = new JMenuItem("Settings");
+        JMenuItem propertiesSettingsMenu = new JMenuItem("Properties"); // previously: Settings
         propertiesSettingsMenu.addActionListener(a -> {
             showPropertiesMenuSettings();
         });
@@ -549,9 +578,15 @@ public class serverGUI {
 
         JMenuItem backupMenu = new JMenuItem("Backup");
         backupMenu.addActionListener(a -> {
-            //todo: backup
+            showBackupPanel();
         });
         settingsMenu.add(backupMenu);
+
+        JMenuItem updateMenu = new JMenuItem("Update");
+        updateMenu.addActionListener(a -> {
+            showUpdateServerFilePanel();
+        });
+        settingsMenu.add(updateMenu);
 
         // About
         settingsMenu.addSeparator();
@@ -591,13 +626,13 @@ public class serverGUI {
 
         JMenuItem webServer = new JMenuItem("webServer");
         webServer.addActionListener(a -> {
-            //todo: webserver
+            showWebServerPanel();
         });
         toolsMenu.add(webServer);
 
         JMenuItem playerInfo = new JMenuItem("Players info");
         playerInfo.addActionListener(a -> {
-            //todo: read nbts of players from "world/playerdata"
+            showPlayerInfoPanel();
         });
         toolsMenu.add(playerInfo);
 
@@ -754,8 +789,10 @@ public class serverGUI {
         }
     }
 
+    private JFrame managePlayersPanel;
     private void showManagePlayersPanel() {
-        JFrame managePlayersPanel = new JFrame("Manage Players");
+        if (managePlayersPanel != null && managePlayersPanel.isShowing()) { managePlayersPanel.toFront(); return; }
+        managePlayersPanel = new JFrame("Manage Players");
         managePlayersPanel.setSize(240,300);
         managePlayersPanel.setLocationRelativeTo(null);
         managePlayersPanel.setResizable(false);
@@ -777,6 +814,7 @@ public class serverGUI {
         //
         managePlayersPanel.revalidate();
         managePlayersPanel.repaint();
+        managePlayersPanel.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         managePlayersPanel.setVisible(true);
     }
 
@@ -815,10 +853,18 @@ public class serverGUI {
 
     private void refreshMainWindowAffectedByProperties() {
         onlineModeToggle.setSelected(Main.data.getProperty("online-mode").equalsIgnoreCase("true"));
+        int viewDistanceValue = 10;
+        try {
+            viewDistanceValue = Integer.parseInt(Main.data.getProperty("view-distance"));
+        } catch (Exception ignored) { }
+        viewDistanceSlider.setValue(viewDistanceValue);
+        setDifficultyGUI(Main.data.getProperty("difficulty"), false);
     }
 
+    private JFrame propertiesSettingsPanel;
     private void showPropertiesMenuSettings() {
-        JFrame propertiesSettingsPanel = new JFrame("Properties Settings");
+        if (propertiesSettingsPanel != null && propertiesSettingsPanel.isShowing()) { propertiesSettingsPanel.toFront(); return; }
+        propertiesSettingsPanel = new JFrame("Properties Settings");
         propertiesSettingsPanel.setSize(480,420);
         propertiesSettingsPanel.setLocationRelativeTo(null);
         propertiesSettingsPanel.setResizable(false);
@@ -845,20 +891,18 @@ public class serverGUI {
         scrollPane.setViewportView(content);
         propertiesSettingsPanel.add(scrollPane);
 
+        Map<String, String> propertiesMap = Main.data.getPropertiesMap();
+
         if (properties.isEmpty()) {
-            Map<String, String> propertiesMap = Main.data.getPropertiesMap();
-
             for (Map.Entry<String, String> entry : propertiesMap.entrySet()) {
-                String key = entry.getKey();
-                String value = entry.getValue();
-
-                properties.add(new PropertiesObject(key, value));
-            }
-
-            for (PropertiesObject p : properties) {
-                content.add(p.getObject());
+                properties.add(new PropertiesObject(entry.getKey(), entry.getValue()));
             }
         }
+
+        for (PropertiesObject p : properties) {
+            content.add(p.getObject());
+        }
+        //
         content.revalidate();
         content.repaint();
         //
@@ -1105,5 +1149,278 @@ public class serverGUI {
         toolLogSearcherPanel.setVisible(true);
     }
 
+    // ============================
+    // SIMPLE SETTINGS //todo: all of below
+    // ===========================
+    private JFrame worldSettingsPanel;
+    private void showWorldSettings() {
+        if (worldSettingsPanel != null && worldSettingsPanel.isShowing()) { worldSettingsPanel.toFront(); return; }
+        //
+        worldSettingsPanel = new JFrame("Backup");
+        worldSettingsPanel.setSize(240,320);
+        worldSettingsPanel.setLocationRelativeTo(null);
+        worldSettingsPanel.setResizable(false);
+        worldSettingsPanel.setIconImage(global.appIMG);
+        worldSettingsPanel.setLayout(null);
+        //
+        //todo:worldsettings things
+        //
+        worldSettingsPanel.revalidate();
+        worldSettingsPanel.repaint();
+        worldSettingsPanel.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        worldSettingsPanel.setVisible(true);
+    }
+
+    private JFrame gameruleSettingsPanel;
+    private void showGameruleSettings() {
+        if (gameruleSettingsPanel != null && gameruleSettingsPanel.isShowing()) { gameruleSettingsPanel.toFront(); return; }
+        //
+        gameruleSettingsPanel = new JFrame("Backup");
+        gameruleSettingsPanel.setSize(240,320);
+        gameruleSettingsPanel.setLocationRelativeTo(null);
+        gameruleSettingsPanel.setResizable(false);
+        gameruleSettingsPanel.setIconImage(global.appIMG);
+        gameruleSettingsPanel.setLayout(null);
+        //
+        //todo:gamerulesettings things
+        //
+        gameruleSettingsPanel.revalidate();
+        gameruleSettingsPanel.repaint();
+        gameruleSettingsPanel.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        gameruleSettingsPanel.setVisible(true);
+    }
+
+    private JFrame serverSettingsPanel;
+    private void showServerSettings() {
+        if (serverSettingsPanel != null && serverSettingsPanel.isShowing()) { serverSettingsPanel.toFront(); return; }
+        //
+        serverSettingsPanel = new JFrame("Backup");
+        serverSettingsPanel.setSize(360,450);
+        serverSettingsPanel.setLocationRelativeTo(null);
+        serverSettingsPanel.setResizable(false);
+        serverSettingsPanel.setIconImage(global.appIMG);
+        serverSettingsPanel.setLayout(null);
+        //
+        //todo:server things motd picture
+        JLabel serverMotd = new JLabel("Server description:");
+        serverMotd.setBounds(5,3,200,30);
+        serverSettingsPanel.add(serverMotd);
+
+        JScrollPane scrollPane = new JScrollPane();
+        scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        scrollPane.setBounds(5,35,335,60);
+
+        JTextArea inputServerMotd = new JTextArea();
+        inputServerMotd.setText(Main.data.getProperty("motd"));
+        inputServerMotd.setLineWrap(true);
+        inputServerMotd.setWrapStyleWord(true);
+
+        scrollPane.setViewportView(inputServerMotd);
+        serverSettingsPanel.add(scrollPane);
+
+
+        JLabel previewDescription = new JLabel("<html>Preview:<br>" + inputServerMotd.getText() + "</html");
+        previewDescription.setBounds(5,100,335,100); // https://mctools.org/motd-creator
+        serverSettingsPanel.add(previewDescription);
+
+        inputServerMotd.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyTyped(KeyEvent e) {
+                super.keyTyped(e);
+                if (inputServerMotd.getText().length() > 150) {
+                    e.consume();
+                    return;
+                }
+                char c = e.getKeyChar();
+                String inputText = inputServerMotd.getText();
+
+                if (!Character.isISOControl(c)) { inputText += c; }
+
+                String text = "<html>Preview:<br>%s</html>".formatted(MotdFormatter.formatMinecraftTextToHTML(inputText));
+                previewDescription.setText(text);
+                previewDescription.setToolTipText(text);
+            }
+        });
+
+        JPanel imgPanel = new JPanel(new BorderLayout());
+        imgPanel.setBorder(BorderFactory.createLineBorder(Color.black));
+        imgPanel.setBounds(10,220,150,150);
+
+        File serverimg = new File(serverPath + "\\\\icon.png");
+        AtomicReference<String> serverimgPath = new AtomicReference<>("");
+        JLabel imageLabel = new JLabel("""
+                <html><img src="file:%s" width="150" height="150"></html>
+                """.formatted(serverimg.exists() ? serverimg.getAbsolutePath() : ""));
+        imgPanel.add(imageLabel);
+        serverSettingsPanel.add(imgPanel);
+
+        FileNameExtensionFilter pngFilter = new FileNameExtensionFilter("PNG Images", "png");
+
+        JButton selectNewImage = new JButton("select Image");
+        JButton deleteImage = new JButton("remove Icon");
+        deleteImage.setEnabled(serverimg.exists());
+
+        selectNewImage.setBounds(170,220,165,30);
+        deleteImage.setBounds(170,255,165,30);
+
+        deleteImage.addActionListener(a -> {
+            imageLabel.setText("""
+                <html><img src="" width="150" height="150"></html>
+                """);
+            serverimgPath.set("");
+            if (!serverimg.exists()) {
+                return;
+            }
+
+            int result = JOptionPane.showConfirmDialog(
+                    null,
+                    "Are you sure you want to delete the icon?",
+                    "Confirm delete",
+                    JOptionPane.YES_NO_OPTION
+            );
+
+            if (result == JOptionPane.YES_OPTION) {
+                serverimg.delete();
+                deleteImage.setEnabled(false);
+            }
+        });
+        selectNewImage.addActionListener(a -> {
+            JFileChooser chooser = new JFileChooser(serverPath);
+            chooser.setAcceptAllFileFilterUsed(false);
+            chooser.addChoosableFileFilter(pngFilter);
+
+            int result = chooser.showOpenDialog(null);
+
+            if (result == JFileChooser.APPROVE_OPTION) {
+                File selected = chooser.getSelectedFile();
+
+                // Files.copy(selected.toPath(), serverimg.toPath(), StandardCopyOption.REPLACE_EXISTING);
+
+                imageLabel.setText(
+                        "<html><img src=\"file:%s\" width=\"150\" height=\"150\"></html>".formatted(selected.getAbsolutePath())
+                );
+                serverimgPath.set(selected.getAbsolutePath());
+                deleteImage.setEnabled(true);
+            }
+        });
+
+        serverSettingsPanel.add(selectNewImage);
+        serverSettingsPanel.add(deleteImage);
+
+        JButton saveAndClose = new JButton("Save");
+        saveAndClose.setBounds(5,375,335,30);
+        saveAndClose.addActionListener(a -> {
+            AppUtils.saveServerMotdAndPicture(inputServerMotd.getText(), serverimgPath.get());
+        });
+        serverSettingsPanel.add(saveAndClose);
+        //
+        serverSettingsPanel.revalidate();
+        serverSettingsPanel.repaint();
+        serverSettingsPanel.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        serverSettingsPanel.setVisible(true);
+    }
+
+    private JFrame permissionSettingsPanel;
+    private void showPermissionSettings() {
+        if (permissionSettingsPanel != null && permissionSettingsPanel.isShowing()) { permissionSettingsPanel.toFront(); return; }
+        //
+        permissionSettingsPanel = new JFrame("Backup");
+        permissionSettingsPanel.setSize(240,320);
+        permissionSettingsPanel.setLocationRelativeTo(null);
+        permissionSettingsPanel.setResizable(false);
+        permissionSettingsPanel.setIconImage(global.appIMG);
+        permissionSettingsPanel.setLayout(null);
+        //
+        //todo:permission things
+        //
+        permissionSettingsPanel.revalidate();
+        permissionSettingsPanel.repaint();
+        permissionSettingsPanel.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        permissionSettingsPanel.setVisible(true);
+    }
+
+    // ============================================
+    // Backup & Update && Playerinfos
+    // ============================================
+
+    private JFrame backupPanel;
+    private void showBackupPanel() {
+        if (backupPanel != null && backupPanel.isShowing()) { backupPanel.toFront(); return; }
+        //
+        backupPanel = new JFrame("Backup");
+        backupPanel.setSize(240,320);
+        backupPanel.setLocationRelativeTo(null);
+        backupPanel.setResizable(false);
+        backupPanel.setIconImage(global.appIMG);
+        backupPanel.setLayout(null);
+        //
+         //todo:backup things
+        //
+        backupPanel.revalidate();
+        backupPanel.repaint();
+        backupPanel.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        backupPanel.setVisible(true);
+    }
+
+    private JFrame updateSettingsPanel;
+    private void showUpdateServerFilePanel() {
+        if (updateSettingsPanel != null && updateSettingsPanel.isShowing()) { updateSettingsPanel.toFront(); return; }
+        //
+        updateSettingsPanel = new JFrame("Backup");
+        updateSettingsPanel.setSize(240,320);
+        updateSettingsPanel.setLocationRelativeTo(null);
+        updateSettingsPanel.setResizable(false);
+        updateSettingsPanel.setIconImage(global.appIMG);
+        updateSettingsPanel.setLayout(null);
+        //
+        //todo:update things
+        //
+        updateSettingsPanel.revalidate();
+        updateSettingsPanel.repaint();
+        updateSettingsPanel.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        updateSettingsPanel.setVisible(true);
+    }
+
+    private JFrame playerInfoPanel;
+    private void showPlayerInfoPanel() {
+        if (playerInfoPanel != null && playerInfoPanel.isShowing()) { playerInfoPanel.toFront(); return; }
+        //
+        playerInfoPanel = new JFrame("Backup");
+        playerInfoPanel.setSize(240,320);
+        playerInfoPanel.setLocationRelativeTo(null);
+        playerInfoPanel.setResizable(false);
+        playerInfoPanel.setIconImage(global.appIMG);
+        playerInfoPanel.setLayout(null);
+        //
+        //todo: read nbts of players from "world/playerdata"
+        //
+        playerInfoPanel.revalidate();
+        playerInfoPanel.repaint();
+        playerInfoPanel.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        playerInfoPanel.setVisible(true);
+    }
+
+    // ============================
+    // Webserver!!!!!
+    // ===========================
+
+    private JFrame webServerPanel;
+    private void showWebServerPanel() {
+        if (webServerPanel != null && webServerPanel.isShowing()) { webServerPanel.toFront(); return; }
+        //
+        webServerPanel = new JFrame("Backup");
+        webServerPanel.setSize(240,320);
+        webServerPanel.setLocationRelativeTo(null);
+        webServerPanel.setResizable(false);
+        webServerPanel.setIconImage(global.appIMG);
+        webServerPanel.setLayout(null);
+        //
+        //todo:webserver things
+        //
+        webServerPanel.revalidate();
+        webServerPanel.repaint();
+        webServerPanel.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        webServerPanel.setVisible(true);
+    }
 
 }
