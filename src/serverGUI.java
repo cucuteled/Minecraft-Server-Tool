@@ -3,6 +3,7 @@ import tools.AppUtils;
 import tools.FileService;
 import tools.IpFieldValidator;
 import tools.MotdFormatter;
+import tools.playerJSON;
 
 import javax.swing.*;
 import java.awt.*;
@@ -15,6 +16,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipFile;
 import javax.swing.JPanel;
+import javax.swing.event.CaretEvent;
+import javax.swing.event.CaretListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 
@@ -57,9 +60,7 @@ public class serverGUI {
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
         //
-        if (new File(serverPath + "\\eula.txt").exists()) {
-            // if Eula already exists
-        } else {
+        if (!new File(serverPath + "\\eula.txt").exists()) {
             JLabel label = new JLabel("<html><h1>Starting server for the first time... Please wait..</h1></html>");
             label.setBounds(10,-15,340,120);
             frame.add(label);
@@ -73,12 +74,12 @@ public class serverGUI {
             try {
                 Process process = pb.start();
                 try (BufferedReader reader = new BufferedReader(
-                     new InputStreamReader(process.getInputStream()))) {
+                        new InputStreamReader(process.getInputStream()))) {
 
-                     String line;
-                     while ((line = reader.readLine()) != null) {
-                         //
-                     }
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        // ignored
+                    }
                 } catch (Exception ignored) {
                 }
                 int exitCode = process.waitFor();
@@ -1150,13 +1151,13 @@ public class serverGUI {
     }
 
     // ============================
-    // SIMPLE SETTINGS //todo: all of below
+    // SIMPLE SETTINGS
     // ===========================
     private JFrame worldSettingsPanel;
     private void showWorldSettings() {
         if (worldSettingsPanel != null && worldSettingsPanel.isShowing()) { worldSettingsPanel.toFront(); return; }
         //
-        worldSettingsPanel = new JFrame("Backup");
+        worldSettingsPanel = new JFrame("World settings");
         worldSettingsPanel.setSize(240,320);
         worldSettingsPanel.setLocationRelativeTo(null);
         worldSettingsPanel.setResizable(false);
@@ -1175,7 +1176,7 @@ public class serverGUI {
     private void showGameruleSettings() {
         if (gameruleSettingsPanel != null && gameruleSettingsPanel.isShowing()) { gameruleSettingsPanel.toFront(); return; }
         //
-        gameruleSettingsPanel = new JFrame("Backup");
+        gameruleSettingsPanel = new JFrame("Gamerules");
         gameruleSettingsPanel.setSize(240,320);
         gameruleSettingsPanel.setLocationRelativeTo(null);
         gameruleSettingsPanel.setResizable(false);
@@ -1194,14 +1195,13 @@ public class serverGUI {
     private void showServerSettings() {
         if (serverSettingsPanel != null && serverSettingsPanel.isShowing()) { serverSettingsPanel.toFront(); return; }
         //
-        serverSettingsPanel = new JFrame("Backup");
+        serverSettingsPanel = new JFrame("Server settings");
         serverSettingsPanel.setSize(360,450);
         serverSettingsPanel.setLocationRelativeTo(null);
         serverSettingsPanel.setResizable(false);
         serverSettingsPanel.setIconImage(global.appIMG);
         serverSettingsPanel.setLayout(null);
         //
-        //todo:server things motd picture
         JLabel serverMotd = new JLabel("Server description:");
         serverMotd.setBounds(5,3,200,30);
         serverSettingsPanel.add(serverMotd);
@@ -1218,10 +1218,122 @@ public class serverGUI {
         scrollPane.setViewportView(inputServerMotd);
         serverSettingsPanel.add(scrollPane);
 
+        JPanel textOptionsPanel = new JPanel(new FlowLayout(FlowLayout.CENTER,2,1));
+        textOptionsPanel.setBounds(5,97,335,30);
+
+        JLabel boldOption = new JLabel("<html><span style='font-size:8px;'><b>Bold</b></span></html>");
+        boldOption.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        boldOption.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                int pos = inputServerMotd.getCaretPosition();
+                inputServerMotd.insert("&l", pos);
+            }
+        });
+        textOptionsPanel.add(boldOption);
+
+        JLabel underlineOption = new JLabel("<html><span style='font-size:8px;'><u>Underline</u></span></html>");
+        underlineOption.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        underlineOption.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                int pos = inputServerMotd.getCaretPosition();
+                inputServerMotd.insert("&n", pos);
+
+            }
+        });
+        textOptionsPanel.add(underlineOption);
+
+        JLabel italicOption = new JLabel("<html><span style='font-size:8px;'><i>Italic</i></span></html>");
+        italicOption.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        italicOption.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                int pos = inputServerMotd.getCaretPosition();
+                inputServerMotd.insert("&o", pos);
+
+            }
+        });
+        textOptionsPanel.add(italicOption);
+
+        JLabel strikeOption = new JLabel("<html><span style='font-size:8px;'><s>Strike</s></span></html>");
+        strikeOption.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        strikeOption.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                int pos = inputServerMotd.getCaretPosition();
+                inputServerMotd.insert("&m", pos);
+            }
+        });
+        textOptionsPanel.add(strikeOption);
+
+        JLabel obfOption = new JLabel("<html><span style='font-size:8px;'>Obfuscated</span></html>");
+        obfOption.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        obfOption.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                int pos = inputServerMotd.getCaretPosition();
+                inputServerMotd.insert("&k", pos);
+            }
+        });
+        textOptionsPanel.add(obfOption);
+
+        JLabel resetOption = new JLabel("<html><span style='font-size:8px;'>Reset</span></html>");
+        resetOption.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        resetOption.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                int pos = inputServerMotd.getCaretPosition();
+                inputServerMotd.insert("&r", pos);
+            }
+        });
+        textOptionsPanel.add(resetOption);
+
+        String[][] colors = {
+                {"Black", "&0"},
+                {"Dark Blue", "&1"},
+                {"Dark Green", "&2"},
+                {"Dark Aqua", "&3"},
+                {"Dark Red", "&4"},
+                {"Dark Purple", "&5"},
+                {"Gold", "&6"},
+                {"Gray", "&7"},
+                {"Dark Gray", "&8"},
+                {"Blue", "&9"},
+                {"Green", "&a"},
+                {"Aqua", "&b"},
+                {"Red", "&c"},
+                {"Light Purple", "&d"},
+                {"Yellow", "&e"},
+                {"White", "&f"}
+        };
+
+        JComboBox<String> colorDropdown = new JComboBox<>();
+        for (String[] c : colors) {
+            colorDropdown.addItem(c[0]);
+        }
+
+        colorDropdown.addActionListener(e -> {
+            int index = colorDropdown.getSelectedIndex();
+            if (index >= 0) {
+                int pos = inputServerMotd.getCaretPosition();
+                inputServerMotd.insert(colors[index][1], pos);
+            }
+        });
+
+        textOptionsPanel.add(colorDropdown);
+        serverSettingsPanel.add(textOptionsPanel);
+
+        JScrollPane previewPanel = new JScrollPane();
+        previewPanel.setBounds(5,115,335,100);
+
 
         JLabel previewDescription = new JLabel("<html>Preview:<br>" + inputServerMotd.getText() + "</html");
-        previewDescription.setBounds(5,100,335,100); // https://mctools.org/motd-creator
-        serverSettingsPanel.add(previewDescription);
+        // https://mctools.org/motd-creator || (Idea)
+        previewDescription.setToolTipText("Minecraft may render this differently.");
+
+        previewPanel.setViewportView(previewDescription);
+        serverSettingsPanel.add(previewPanel);
 
         inputServerMotd.addKeyListener(new KeyAdapter() {
             @Override
@@ -1231,14 +1343,14 @@ public class serverGUI {
                     e.consume();
                     return;
                 }
-                char c = e.getKeyChar();
+            }
+        });
+        inputServerMotd.addCaretListener(new CaretListener() {
+            @Override
+            public void caretUpdate(CaretEvent e) {
                 String inputText = inputServerMotd.getText();
-
-                if (!Character.isISOControl(c)) { inputText += c; }
-
                 String text = "<html>Preview:<br>%s</html>".formatted(MotdFormatter.formatMinecraftTextToHTML(inputText));
                 previewDescription.setText(text);
-                previewDescription.setToolTipText(text);
             }
         });
 
@@ -1294,8 +1406,6 @@ public class serverGUI {
             if (result == JFileChooser.APPROVE_OPTION) {
                 File selected = chooser.getSelectedFile();
 
-                // Files.copy(selected.toPath(), serverimg.toPath(), StandardCopyOption.REPLACE_EXISTING);
-
                 imageLabel.setText(
                         "<html><img src=\"file:%s\" width=\"150\" height=\"150\"></html>".formatted(selected.getAbsolutePath())
                 );
@@ -1310,7 +1420,14 @@ public class serverGUI {
         JButton saveAndClose = new JButton("Save");
         saveAndClose.setBounds(5,375,335,30);
         saveAndClose.addActionListener(a -> {
-            AppUtils.saveServerMotdAndPicture(inputServerMotd.getText(), serverimgPath.get());
+            String originalMotd = Main.data.getProperty("motd");
+            if (!originalMotd.equalsIgnoreCase(inputServerMotd.getText())) {
+                Main.data.setProperty("motd", inputServerMotd.getText());
+                AppUtils.saveServerData(Main.data); // todo:Test
+            }
+            AppUtils.saveServerPicture(serverimgPath.get(), serverPath);
+            //
+            serverSettingsPanel.dispose();
         });
         serverSettingsPanel.add(saveAndClose);
         //
@@ -1320,22 +1437,169 @@ public class serverGUI {
         serverSettingsPanel.setVisible(true);
     }
 
+    private List<playerJSON> whitelistPlayers;
+    private List<playerJSON> opPlayers;
+    private boolean isThereChangeAtPermissionPanel;
+
     private JFrame permissionSettingsPanel;
     private void showPermissionSettings() {
         if (permissionSettingsPanel != null && permissionSettingsPanel.isShowing()) { permissionSettingsPanel.toFront(); return; }
         //
-        permissionSettingsPanel = new JFrame("Backup");
-        permissionSettingsPanel.setSize(240,320);
+        permissionSettingsPanel = new JFrame("Permission settings");
+        permissionSettingsPanel.setSize(380,480);
         permissionSettingsPanel.setLocationRelativeTo(null);
         permissionSettingsPanel.setResizable(false);
         permissionSettingsPanel.setIconImage(global.appIMG);
         permissionSettingsPanel.setLayout(null);
         //
+        isThereChangeAtPermissionPanel = false;
         //todo:permission things
+        // Whitelist
+
+        JCheckBox enableWhiteList = new JCheckBox("Enable white-list");
+        enableWhiteList.setBounds(5,5,300,30);
+        enableWhiteList.setSelected(Main.data.getProperty("white-list").equalsIgnoreCase("true"));
+
+        permissionSettingsPanel.add(enableWhiteList);
+
+        JLabel whitelistLabel = new JLabel("Player:");
+        whitelistLabel.setBounds(5,40,120,30);
+        permissionSettingsPanel.add(whitelistLabel);
+
+        JTextField inputWhitelist = new JTextField();
+        inputWhitelist.setBounds(50,40,210,30);
+        permissionSettingsPanel.add(inputWhitelist);
+
+        JButton whitelistButton = new JButton("<html><span style=\"font-size:8px\">Add/Remove</span></html>");
+        whitelistButton.setBounds(263,41,95,28);
+        permissionSettingsPanel.add(whitelistButton);
+
+        JScrollPane whitelistScrollPane = new JScrollPane();
+        whitelistScrollPane.setBounds(5,75,355,130);
+        whitelistScrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+
+        DefaultListModel<String> model = new DefaultListModel<>();
+        JList<String> whitelistPlayersList = new JList<>(model);
+
+        // fill up whitelist members
+
+        whitelistPlayers = AppUtils.getPlayersFromJSON(serverPath + "\\\\whitelist.json");
+        for (playerJSON player : whitelistPlayers) {
+            model.addElement(player.getName());
+        }
+
+        whitelistButton.addActionListener(a -> {
+            //todo:add/remove player to whitelist
+            String player = inputWhitelist.getText();
+            boolean contains = false;
+            for (playerJSON p : whitelistPlayers) {
+                if (p.getName().equals(player)) {
+                    contains = true;
+                    whitelistPlayers.remove(p);
+                    isThereChangeAtPermissionPanel = true;
+                }
+            }
+            if (!contains) {
+                whitelistPlayers.add(new playerJSON("generate or lookup uuid", player)); //todo:
+                isThereChangeAtPermissionPanel = true;
+            }
+        });
+
+        whitelistScrollPane.setViewportView(whitelistPlayersList);
+        permissionSettingsPanel.add(whitelistScrollPane);
+
+        if (!enableWhiteList.isSelected()) {
+            inputWhitelist.setEnabled(false);
+            whitelistScrollPane.setEnabled(false);
+            whitelistPlayersList.setEnabled(false);
+            whitelistButton.setEnabled(false);
+        }
+        enableWhiteList.addChangeListener(a -> {
+            boolean isSelected = enableWhiteList.isSelected();
+            inputWhitelist.setEnabled(isSelected);
+            whitelistScrollPane.setEnabled(isSelected);
+            whitelistPlayersList.setEnabled(isSelected);
+            whitelistButton.setEnabled(isSelected);
+        });
+
+        // Operation Permission
+        JPanel opPlayerPanelLabelPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        opPlayerPanelLabelPanel.setBounds(0,210,365,30);
+        JLabel opPlayerPanelLabel = new JLabel("----------------------- Operation Permissions (Admin) -----------------------");
+        opPlayerPanelLabelPanel.add(opPlayerPanelLabel);
+        permissionSettingsPanel.add(opPlayerPanelLabelPanel);
+
+        JPanel opPlayersPanel = new JPanel();
+        opPlayersPanel.setBounds(5,240,355,195);
+        opPlayersPanel.setLayout(null);
+        //opPlayersPanel.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+        permissionSettingsPanel.add(opPlayersPanel);
+
+        JLabel opPlayerLabel = new JLabel("Player:");
+        opPlayerLabel.setBounds(0,3,200,30);
+        opPlayersPanel.add(opPlayerLabel);
+
+        JTextField inputOpPlayer = new JTextField();
+        inputOpPlayer.setBounds(45,3,210,30);
+        opPlayersPanel.add(inputOpPlayer);
+
+        JButton opPlayerButton = new JButton("<html><span style=\"font-size:8px\">Add/Remove</span></html>");
+        opPlayerButton.setBounds(258,4,95,28);
+        opPlayersPanel.add(opPlayerButton);
+
+        JScrollPane opPlayersScrollPane = new JScrollPane();
+        opPlayersScrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        opPlayersScrollPane.setBounds(0,35,355,160);
+
+        DefaultListModel<String> modelOP = new DefaultListModel<>();
+        JList<String> opPlayersList = new JList<>(modelOP);
+
+        opPlayers = AppUtils.getPlayersFromJSON(serverPath + "\\\\op.json");
+        for (playerJSON player : opPlayers) {
+            model.addElement(player.getName());
+        }
+
+        opPlayerButton.addActionListener(a -> {
+            String player = inputOpPlayer.getText();
+            boolean contains = false;
+            for (playerJSON p : opPlayers) {
+                if (p.getName().equals(player)) {
+                    contains = true;
+                    opPlayers.remove(p);
+                    isThereChangeAtPermissionPanel = true;
+                }
+            }
+            if (!contains) {
+                opPlayers.add(new playerJSON("generate or lookup uuid", player)); //todo:
+                isThereChangeAtPermissionPanel = true;
+            }
+        });
+        //
+         permissionSettingsPanel.addWindowListener(new WindowAdapter() {
+             @Override
+             public void windowClosing(WindowEvent e) {
+                 super.windowClosing(e);
+                 if (!isThereChangeAtPermissionPanel) {
+                     permissionSettingsPanel.dispose();
+                 } else {
+                    int result = JOptionPane.showConfirmDialog(null,
+                            "Are you sure you want to save change?",
+                            "Save change",
+                            JOptionPane.YES_NO_OPTION);
+
+                    if (result == JOptionPane.YES_OPTION) {
+                        //todo: save op and whitelist
+                    }
+                 }
+             }
+         });
+        //
+        opPlayersScrollPane.setViewportView(opPlayersList);
+        opPlayersPanel.add(opPlayersScrollPane);
         //
         permissionSettingsPanel.revalidate();
         permissionSettingsPanel.repaint();
-        permissionSettingsPanel.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        permissionSettingsPanel.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         permissionSettingsPanel.setVisible(true);
     }
 
@@ -1366,7 +1630,7 @@ public class serverGUI {
     private void showUpdateServerFilePanel() {
         if (updateSettingsPanel != null && updateSettingsPanel.isShowing()) { updateSettingsPanel.toFront(); return; }
         //
-        updateSettingsPanel = new JFrame("Backup");
+        updateSettingsPanel = new JFrame("Update");
         updateSettingsPanel.setSize(240,320);
         updateSettingsPanel.setLocationRelativeTo(null);
         updateSettingsPanel.setResizable(false);
@@ -1385,7 +1649,7 @@ public class serverGUI {
     private void showPlayerInfoPanel() {
         if (playerInfoPanel != null && playerInfoPanel.isShowing()) { playerInfoPanel.toFront(); return; }
         //
-        playerInfoPanel = new JFrame("Backup");
+        playerInfoPanel = new JFrame("Player Info");
         playerInfoPanel.setSize(240,320);
         playerInfoPanel.setLocationRelativeTo(null);
         playerInfoPanel.setResizable(false);
@@ -1408,7 +1672,7 @@ public class serverGUI {
     private void showWebServerPanel() {
         if (webServerPanel != null && webServerPanel.isShowing()) { webServerPanel.toFront(); return; }
         //
-        webServerPanel = new JFrame("Backup");
+        webServerPanel = new JFrame("webServer");
         webServerPanel.setSize(240,320);
         webServerPanel.setLocationRelativeTo(null);
         webServerPanel.setResizable(false);

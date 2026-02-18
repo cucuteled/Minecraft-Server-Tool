@@ -3,10 +3,11 @@ package tools;
 import data.NewServerForm;
 import globl.Data;
 
-import javax.swing.*;
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -464,9 +465,107 @@ public class AppUtils {
         return new byte[0];
     }
 
-    public static void saveServerMotdAndPicture(String motd, String Picture) {
-        boolean isNewPicture = Picture.isBlank();
-        // todo save
+    public static void saveServerPicture(String Picture, String serverPath) {
+        if (Picture.isBlank()) return;
+        System.out.println(Picture);
+        File img = new File(Picture);
+        if (img.exists()) {
+            try {
+                Files.copy(img.toPath(), new File(serverPath + "\\\\icon.png").toPath() , StandardCopyOption.REPLACE_EXISTING);
+            } catch (Exception ignored) {}
+        }
+    }
+
+    public static List<playerJSON> getPlayersFromJSON(String serverPath) {
+        File jsonTXT = new File(serverPath);
+        List<playerJSON> Data = new ArrayList<>();
+        if (!jsonTXT.exists()) return Data;
+        List<String> JSON = FileService.readFile(jsonTXT.getAbsolutePath())
+                .stream()
+                .map(o -> (String) o)
+                .toList();
+        String[] parts = JSON.toString().split("\"");
+        //
+        String uuid = "";
+        String name = "";
+
+        String ip = "";
+        String created = "";
+        String sources = "";
+        String expires = "";
+
+        String level = "";
+        String bypassPlayerLimit = "";
+        //
+        for (int i = 0; i < parts.length;i++) {
+            try {
+                String line = parts[i].trim();
+
+                String key = line.replace("\"", "")
+                        .replace(":", "")
+                        .replace(",", "")
+                        .trim();
+
+                switch (key) {
+                    case "uuid":
+                        uuid = parts[i+2];
+                        break;
+
+                    case "name":
+                        name = parts[i+2];
+                        break;
+
+                    case "ip":
+                        ip = parts[i+2];
+                        break;
+
+                    case "created":
+                        created = parts[i+2];
+                        break;
+
+                    case "source":
+                        sources = parts[i+2];
+                        break;
+
+                    case "expires":
+                        expires = parts[i+2];
+                        break;
+
+                    case "level":
+                        level = parts[i+1].replace(": ", "").replace(",", "").trim();
+                        break;
+
+                    case "bypassesPlayerLimit":
+                        bypassPlayerLimit = parts[i+1].replace(": ", "").split(" ")[0].replace(",", "");
+                        break;
+
+                    default:
+                        break;
+                }
+
+            } catch (Exception ignored) {}
+            if (parts[i].contains("}")) {
+                if (!ip.isEmpty() && !created.isEmpty() && !sources.isEmpty() && !expires.isEmpty()) {
+                    Data.add(new playerJSON(ip, created, sources, expires, "", ""));
+                } else if (!created.isEmpty() && !sources.isEmpty() && !expires.isEmpty() && !uuid.isEmpty() && !name.isEmpty()) {
+                    Data.add(new playerJSON(uuid,name, sources, expires, created));
+                } else if (!level.isEmpty() && !bypassPlayerLimit.isEmpty() && !uuid.isEmpty() && !name.isEmpty()) {
+                    Data.add(new playerJSON(uuid,name,level,bypassPlayerLimit));
+                } else if (!uuid.isEmpty() && !name.isEmpty()) {
+                    Data.add(new playerJSON(uuid,name));
+                }
+                //
+                uuid = "";
+                name = "";
+                ip = "";
+                created = "";
+                expires = "";
+                sources = "";
+                level = "";
+                bypassPlayerLimit = "";
+            }
+        }
+        return Data;
     }
 
 

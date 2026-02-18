@@ -1,8 +1,10 @@
 import globl.Data;
 import tools.AppUtils;
 import tools.FileService;
+import tools.*;
 
 import java.io.File;
+import java.util.List;
 
 class Test {
 
@@ -26,12 +28,19 @@ class Test {
 //        float dayTime = Float.parseFloat(AppUtils.getDataFromNBT(new File("G:\\My Servers\\Krumpli\\world\\level.dat"),"DayTime"));
 //        dayTime = dayTime / 24000;
 //        System.out.println((int)dayTime + "day");
-        File player = new File("G:\\\\My Servers\\\\Krumpli\\\\world\\\\level.dat");
-        byte[] data = FileService.readGzipBytes(player);
-        byte[] gamerules = AppUtils.getCompoundFromNBT(data, "game_rules");
+//        File player = new File("G:\\\\My Servers\\\\Krumpli\\\\world\\\\level.dat");
+//        byte[] data = FileService.readGzipBytes(player);
+//        byte[] gamerules = AppUtils.getCompoundFromNBT(data, "game_rules");
+//
+//        String keepinv = AppUtils.getDataFromNBT(gamerules,"minecraft:keep_inventory");
+//        System.out.println(keepinv);
 
-        String keepinv = AppUtils.getDataFromNBT(gamerules,"minecraft:keep_inventory");
-        System.out.println(keepinv);
+        File f = new File("G:\\My Servers\\Krumpli" + "\\ops.json");
+        List<playerJSON> bp = AppUtils.getPlayersFromJSON(f.getAbsolutePath());
+        for (playerJSON p : bp) {
+            System.out.println(p.getAdminPlayersJSON() + ",");
+        }
+
     } //todo: server settings motd && picture || motd settings & world generation settings || game_rule settings || update server file_settings || whitelist OP BANNED players editor
 
     public static void testNBTParsingPlayer() {
