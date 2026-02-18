@@ -1,0 +1,32 @@
+Ultimate Minecraft Tool (UMT)
+Copyright (c) 2026 kosztafelix
+
+All Rights Reserved.
+
+Permission is hereby granted to any person obtaining a copy of this software
+and associated documentation files (the "Software") to use the Software for
+personal, educational, or private purposes, subject to the following conditions:
+
+1. Attribution is required.
+   Any use, copy, fork, reference, or distribution of this Software or its
+   source code must clearly credit the original author: kosztafelix.
+
+2. No Commercial Use.
+   The Software may not be sold, sublicensed, or used for commercial purposes
+   without explicit written permission from the author.
+
+3. No Misrepresentation.
+   You may not claim that you created the original Software.
+
+4. Redistribution.
+   Redistribution of modified or unmodified versions is allowed only if:
+   - proper credit is given
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
+OR OTHER DEALINGS IN THE SOFTWARE.
+
+For permissions beyond the scope of this license, contact the author.
